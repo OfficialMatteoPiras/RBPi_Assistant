@@ -1,4 +1,8 @@
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request
+from flask_socketio import SocketIO
+from flask_cors import CORS
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
 from src.wather_api import get_weather_data
 from src.utils.icon_generator import ensure_icons_exist
 from src.utils.weather_codes import get_icon_filename, get_weather_description
@@ -6,6 +10,9 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 import os
 import datetime
+import threading
+import time
+import configparser
 
 class Server:
     def __init__(self, template_folder='../ui/html', host='0.0.0.0', port=5000):
@@ -17,8 +24,13 @@ class Server:
                          template_folder=template_folder, 
                          static_folder=static_folder,
                          static_url_path='/static')
+        CORS(self.app)  # Enable CORS for Flask
+        self.socketio = SocketIO(self.app, cors_allowed_origins="*")  # Ensure CORS is enabled for all origins
         self.host = host
         self.port = port
+
+        # Start file watcher in a separate thread
+        self.start_file_watcher()
         
         # Initialize scheduler for automatic weather updates
         self.scheduler = BackgroundScheduler()
@@ -142,11 +154,53 @@ class Server:
                 'hourly': hourly_dict,
                 'daily': daily_dict
             })
-    
+        
+        @self.app.route('/refresh-all', methods=['POST'])
+        def refresh_all():
+            """Endpoint to trigger a refresh on all connected clients."""
+            try:
+                self.socketio.emit('refresh', broadcast=True)  # Use broadcast=True to send to all clients
+                print("Refresh signal sent to all connected clients.")  # Log for debugging
+            except Exception as e:
+                print(f"Error sending refresh signal: {e}")  # Log any errors
+            return jsonify({'status': 'success', 'message': 'Refresh signal sent to all clients'})
+
+        @self.app.route('/api/config')
+        def get_config():
+            """Endpoint to fetch configuration values."""
+            config = configparser.ConfigParser()
+            config.read('config.ini')
+            debug_value = config.get('DEFAULT', 'DEBUG', fallback='false')
+            return jsonify({'DEBUG': debug_value})
+
+    def trigger_refresh_all(self):
+        """Trigger a refresh-all command programmatically."""
+        with self.app.test_request_context('/refresh-all', method='POST'):
+            response = self.app.full_dispatch_request()
+            print(response.get_json().get('message', 'Failed to trigger refresh-all'))
+
+    def start_file_watcher(self):
+        """Start a file watcher to monitor changes in the project directory."""
+        class ChangeHandler(FileSystemEventHandler):
+            def __init__(self, socketio):
+                self.socketio = socketio  # Store the SocketIO instance
+
+            def on_modified(self, event):
+                if event.src_path.endswith(('.html', '.css', '.js')):
+                    print(f"File modified: {event.src_path}")
+                    self.socketio.emit('refresh', to='/')  # Send refresh signal to all clients
+
+        observer = Observer()
+        project_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        observer.schedule(ChangeHandler(self.socketio), path=project_dir, recursive=True)  # Pass SocketIO instance
+        observer_thread = threading.Thread(target=observer.start, daemon=True)
+        observer_thread.start()
+        print(f"Started file watcher for directory: {project_dir}")
+
     def run(self, debug=True):
         print("Starting RBPi Assistant server...")
         print(f"Access the web interface at http://{self.host if self.host != '0.0.0.0' else 'localhost'}:{self.port}")
-        self.app.run(host=self.host, port=self.port, debug=debug)
+        self.socketio.run(self.app, host=self.host, port=self.port, debug=debug)  # Use SocketIO to run the app
     
     def shutdown(self):
         """Clean shutdown of the server and scheduler"""

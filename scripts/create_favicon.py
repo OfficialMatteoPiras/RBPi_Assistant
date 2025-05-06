@@ -21,6 +21,3 @@ def create_favicon():
     favicon_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ui', 'favicon.ico')
     img.save(favicon_path, format='ICO')
     print(f"Created favicon at {favicon_path}")
-
-if __name__ == "__main__":
-    create_favicon()

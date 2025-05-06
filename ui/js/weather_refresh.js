@@ -20,4 +20,60 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Refresh weather data every 15 minutes (900000 ms)
     setInterval(refreshWeather, 900000);
+
+    // WebSocket connection to listen for refresh commands
+    const socket = io({ transports: ['websocket', 'polling'] }); // Ensure proper transport methods
+
+    socket.on('connect', () => {
+        console.log('Connected to Socket.IO server');
+    });
+
+    socket.on('refresh', () => {
+        console.log('Refresh command received. Reloading page...');
+        location.reload(); // Reload the page
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Disconnected from Socket.IO server');
+    });
+
+    // Debugging: Log all events received by the client
+    socket.onAny((eventName, ...args) => {
+        console.log(`Event received: ${eventName}`, args);
+    });
+
+    // Automatically reload the page every 60 seconds
+    let debug_interval = 10000; // 10 seconds in milliseconds
+    let real_interval = 60000*60; // 60 seconds * 60 minutes in milliseconds
+    setInterval(() => {
+        console.log('Auto-refreshing the page...');
+        location.reload();
+    }, real_interval); // 60000 ms = 60 seconds
+
+    // Function to check debug mode and refresh the page
+    function checkAndRefresh() {
+        fetch('/api/config')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch config');
+                }
+                return response.json();
+            })
+            .then(config => {
+                const now = new Date();
+                const isDebug = config.DEBUG === 'true';
+                const isOneTenAM = now.getHours() === 1 && now.getMinutes() === 10;
+
+                if (isDebug || isOneTenAM) {
+                    console.log('Auto-refreshing the page...');
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error checking config:', error);
+            });
+    }
+
+    // Check every 60 seconds
+    setInterval(checkAndRefresh, 60000); // 60000 ms = 60 seconds
 });

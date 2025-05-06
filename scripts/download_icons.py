@@ -73,10 +73,9 @@ def create_basic_weather_icons():
         img.save(img_path)
         print(f"Created icon for code {code} ({description}) at {img_path}")
 
-if __name__ == "__main__":
-    create_unknown_icon()
-    print("Created basic unknown icon. Run with --all to create icons for all weather codes.")
-    
-    if len(os.sys.argv) > 1 and os.sys.argv[1] == "--all":
-        create_basic_weather_icons()
-        print("Created basic icons for all weather codes.")
+create_unknown_icon()
+print("Created basic unknown icon. Run with --all to create icons for all weather codes.")
+
+if len(os.sys.argv) > 1 and os.sys.argv[1] == "--all":
+    create_basic_weather_icons()
+    print("Created basic icons for all weather codes.")
