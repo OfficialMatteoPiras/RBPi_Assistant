@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Athena Assistant</title>
+    <link rel="stylesheet" href="/static/css/athena_gfx.css">
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+    <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+</head>
+<body>
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark/light mode">🌓</button>
+    
+    <div class="container">
+        <div class="panel">
+            <h1>Athena Assistant</h1>
+            <p>Your personal voice assistant powered by RBPi5</p>
+        </div>
+        
+        <div class="panel">
+            <h2>Weather Information</h2>
+            <div class="weather-info">
+                {% if weather %}
+                <!-- Current Weather Card -->
+                <div class="weather-card">
+                    <h3>Current Weather</h3>
+                    <div class="weather-icon">
+                        <img src="/static/icons/{{ weather.current.icon_filename }}" alt="{{ weather.current.weather_description }}" 
+                             onerror="this.src='/static/icons/unknown.png'">
+                    </div>
+                    <div class="weather-details">
+                        <p class="weather-description">{{ weather.current.weather_description }}</p>
+                        <p class="temperature">{{ weather.current.temperature }}°C</p>
+                        <p>Feels like: {{ weather.current.feels_like }}°C</p>
+                        <p>Humidity: {{ weather.current.humidity }}%</p>
+                        <p>Wind: {{ weather.current.wind_speed }} km/h</p>
+                        <p>Precipitation: {{ weather.current.precipitation }} mm</p>
+                        <p>Cloud cover: {{ weather.current.cloud_cover }}%</p>
+                        <p class="time">Last updated: {{ weather.current.time }}</p>
+                    </div>
+                </div>
+                
+                <!-- Today's Forecast Card -->
+                <div class="weather-card">
+                    <h3>Today's Forecast</h3>
+                    {% if weather.today %}
+                    <div class="weather-icon">
+                        <img src="/static/icons/{{ weather.today.icon_filename }}" alt="{{ weather.today.weather_description }}"
+                             onerror="this.src='/static/icons/unknown.png'">
+                    </div>
+                    <div class="weather-details">
+                        <p class="weather-description">{{ weather.today.weather_description }}</p>
+                        <p class="temperature">{{ weather.today.max_temp }}°C / {{ weather.today.min_temp }}°C</p>
+                        <p>Precipitation: {{ weather.today.precipitation }} mm</p>
+                        <p>Sunrise: {{ weather.today.sunrise }}</p>
+                        <p>Sunset: {{ weather.today.sunset }}</p>
+                    </div>
+                    {% else %}
+                    <p>No forecast data available</p>
+                    {% endif %}
+                </div>
+                
+                <!-- Tomorrow's Forecast Card -->
+                <div class="weather-card">
+                    <h3>Tomorrow</h3>
+                    {% if weather.tomorrow %}
+                    <div class="weather-icon">
+                        <img src="/static/icons/{{ weather.tomorrow.icon_filename }}" alt="{{ weather.tomorrow.weather_description }}"
+                             onerror="this.src='/static/icons/unknown.png'">
+                    </div>
+                    <div class="weather-details">
+                        <p class="weather-description">{{ weather.tomorrow.weather_description }}</p>
+                        <p class="temperature">{{ weather.tomorrow.max_temp }}°C / {{ weather.tomorrow.min_temp }}°C</p>
+                        <p>Precipitation: {{ weather.tomorrow.precipitation }} mm</p>
+                        <p>Sunrise: {{ weather.tomorrow.sunrise }}</p>
+                        <p>Sunset: {{ weather.tomorrow.sunset }}</p>
+                    </div>
+                    {% else %}
+                    <p>No forecast data available</p>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="weather-card">
+                    <h3>Current Weather</h3>
+                    <p>Loading current weather data...</p>
+                </div>
+                
+                <div class="weather-card">
+                    <h3>Today's Forecast</h3>
+                    <p>Loading forecast data...</p>
+                </div>
+                
+                <div class="weather-card">
+                    <h3>Tomorrow</h3>
+                    <p>Loading forecast data...</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/theme_toggle.js"></script>
+    <script src="/static/js/weather_refresh.js"></script>
+</body>
+</html>

@@ -1,0 +1,129 @@
+:root {
+    --bg-color: #f8f9fa;
+    --text-color: #333;
+    --panel-bg-color: #ffffff;
+    --panel-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    --border-color: #ddd;
+    --accent-color: #007bff;
+    --secondary-bg: #f0f0f0;
+    --hover-color: #e9ecef;
+}
+
+[data-theme="dark"] {
+    --bg-color: #121212;
+    --text-color: #f0f0f0;
+    --panel-bg-color: #1e1e1e;
+    --panel-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    --border-color: #444;
+    --accent-color: #4dabf7;
+    --secondary-bg: #2d2d2d;
+    --hover-color: #2c3035;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    margin: 0;
+    padding: 0;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: background-color 0.3s, color 0.3s;
+}
+
+.container {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.panel {
+    background-color: var(--panel-bg-color);
+    border-radius: 8px;
+    box-shadow: var(--panel-shadow);
+    padding: 20px;
+    margin-bottom: 20px;
+    border: 1px solid var(--border-color);
+}
+
+h1, h2, h3 {
+    margin-top: 0;
+    color: var(--accent-color);
+}
+
+.weather-info {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+}
+
+.weather-card {
+    background-color: var(--secondary-bg);
+    border-radius: 8px;
+    padding: 15px;
+    flex: 1;
+    min-width: 200px;
+    border: 1px solid var(--border-color);
+    transition: transform 0.3s;
+}
+
+.weather-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--panel-shadow);
+}
+
+.theme-toggle {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 24px;
+    z-index: 1000;
+    opacity: 0.8;
+    transition: opacity 0.3s;
+}
+
+.theme-toggle:hover {
+    opacity: 1;
+}
+
+/* New and updated styles for weather display */
+.weather-icon {
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+.weather-icon img {
+    width: 64px;
+    height: 64px;
+}
+
+.weather-details {
+    margin-top: 15px;
+}
+
+.temperature {
+    font-size: 1.8em;
+    font-weight: bold;
+    margin: 5px 0;
+    color: var(--accent-color);
+}
+
+.time {
+    font-size: 0.9em;
+    color: #888;
+    margin-top: 10px;
+}
+
+.weather-description {
+    font-size: 1.1em;
+    margin: 0 0 10px 0;
+    font-weight: 500;
+    color: var(--accent-color);
+}
+
+@media (max-width: 768px) {
+    .weather-info {
+        flex-direction: column;
+    }
+}
