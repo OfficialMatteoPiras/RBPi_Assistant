@@ -308,8 +308,13 @@ class Server:
 
     def run(self, debug=True):
         print("Starting RBPi Assistant server...")
-        print(f"Access the web interface at http://{self.host if self.host != '0.0.0.0' else 'localhost'}:{self.port}")
-        self.socketio.run(self.app, host=self.host, port=self.port, debug=debug)  # Ensure the port matches
+        if debug:
+            host = self.host  # Use default host (0.0.0.0) for debug mode
+        else:
+            host = "192.168.1.147"  # Use the Raspberry Pi's IP address for production mode
+
+        print(f"Access the web interface at http://{host}:{self.port}")
+        self.socketio.run(self.app, host=host, port=self.port, debug=debug)  # Ensure the port matches
     
     def shutdown(self):
         """Clean shutdown of the server and scheduler"""
