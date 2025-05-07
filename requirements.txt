@@ -3,7 +3,8 @@ Flask>=2.0.0
 flask-socketio>=5.0.0
 flask_cors
 
-watchdog
+# File system monitoring
+watchdog>=2.1.0
 
 # Data handling
 pandas>=1.3.0
@@ -23,12 +24,15 @@ APScheduler>=3.9.1
 # Image handling for icon generation
 Pillow>=9.0.0
 
-# Optional: For development
-pytest>=7.0.0
-flake8>=4.0.0
-watchdog>=2.1.0
+# Spotify API client
 spotipy>=2.19.0
-keyboard>=0.13.5
 
 # Cryptography
 cryptography>=3.4.7
+
+# Keyboard and hotkey handling
+pynput>=1.7.6
+
+# Optional: For development
+pytest>=7.0.0
+flake8>=4.0.0

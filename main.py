@@ -1,7 +1,7 @@
 from src.server import Server
 import atexit
 import threading
-import keyboard  # Requires the `keyboard` library
+from pynput import keyboard  # Replace `keyboard` with `pynput`
 
 def create_app():
     """Create and return the Flask app instance."""
@@ -24,6 +24,18 @@ def command_console(server):
         else:
             print(f"Unknown command: {command}")
 
+def toggle_console(console_thread, server):
+    """Toggle the console thread."""
+    if console_thread.is_alive():
+        print("Disabling console...")
+        console_thread.join(timeout=1)
+    else:
+        print("Enabling console...")
+        new_thread = threading.Thread(target=command_console, args=(server,), daemon=True)
+        new_thread.start()
+        return new_thread
+    return console_thread
+
 if __name__ == '__main__':
     # Create server instance
     server = Server()
@@ -35,17 +47,17 @@ if __name__ == '__main__':
     console_thread = threading.Thread(target=command_console, args=(server,), daemon=True)
     console_thread.start()
 
-    # Listen for Ctrl+T to toggle the console
-    def toggle_console():
-        if console_thread.is_alive():
-            print("Disabling console...")
-            console_thread.join(timeout=1)
-        else:
-            print("Enabling console...")
-            console_thread = threading.Thread(target=command_console, args=(server,), daemon=True)
-            console_thread.start()
+    # Listen for Ctrl+T to toggle the console using `pynput`
+    def on_press(key):
+        global console_thread
+        try:
+            if key == keyboard.Key.ctrl_l:  # Replace with your desired hotkey
+                console_thread = toggle_console(console_thread, server)
+        except Exception as e:
+            print(f"Error: {e}")
 
-    keyboard.add_hotkey('ctrl+t', toggle_console)
+    listener = keyboard.Listener(on_press=on_press)
+    listener.start()
 
     # Run the server directly
     server.run()
