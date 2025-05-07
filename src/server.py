@@ -42,7 +42,7 @@ class Server:
         self.spotify_client = SpotifyClient(
             client_id="291a3fa0a88b4666863dfca972cae948",
             client_secret="1a4ae847aac54988b09201b57d3d7cc4",
-            redirect_uri=f"http://127.0.0.1:{redirect_port}/callback"  # Update the port here
+            redirect_uri=f"http://127.0.0.1:5000/callback"  # Update the port here
         )
         self.spotify_state = None  # Store the current Spotify state
         self.weather_state = None  # Store the current weather state
