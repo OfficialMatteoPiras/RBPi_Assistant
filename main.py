@@ -31,5 +31,5 @@ if __name__ == '__main__':
     console_thread = threading.Thread(target=command_console, args=(server,), daemon=True)
     console_thread.start()
     
-    # Run the server
+    # Run the server directly
     server.run()

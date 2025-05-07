@@ -15,11 +15,17 @@ import time
 import configparser
 
 class Server:
-    def __init__(self, template_folder='../ui/html', host='0.0.0.0', port=5000):
+    def __init__(self, template_folder='../ui/html', host='0.0.0.0'):
         # Ensure the static folder exists and contains required icons
         static_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ui')
         ensure_icons_exist()
-        
+
+        # Load configuration
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        self.port = int(config.get('DEFAULT', 'PORT', fallback=5000))  # Default to port 5000 if not specified
+        print(f"Configured port: {self.port}")  # Debugging log
+
         self.app = Flask(__name__, 
                          template_folder=template_folder, 
                          static_folder=static_folder,
@@ -27,7 +33,6 @@ class Server:
         CORS(self.app)  # Enable CORS for Flask
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")  # Ensure CORS is enabled for all origins
         self.host = host
-        self.port = port
 
         # Start file watcher in a separate thread
         self.start_file_watcher()
@@ -38,40 +43,35 @@ class Server:
         
         # Register routes
         self.register_routes("athena_ui.html")
+        
+        self.last_weather_update = None  # Store the last weather update time
     
     def setup_scheduler(self):
-        """Configure the scheduler to update weather data at 1:00 AM"""
+        """Configure the scheduler to update weather data every hour"""
         # Start the scheduler first
         self.scheduler.start()
         print("Weather update scheduler started")
         
-        # Set up a job to update weather data at 1:00 AM
+        # Set up a job to update weather data every hour
         try:
             self.scheduler.add_job(
                 func=self.update_weather_data,
-                trigger=CronTrigger(hour=1, minute=0),  # Run at 1:00 AM
-                id='weather_update_job',
-                name='Update weather data daily',
+                trigger=CronTrigger(minute=0),  # Run at the start of every hour
+                id='hourly_weather_update_job',
+                name='Update weather data hourly',
                 replace_existing=True
             )
-            
-            # Get the job and log the next run time
-            job = self.scheduler.get_job('weather_update_job')
-            if job and hasattr(job, 'next_run_time') and job.next_run_time:
-                next_run = job.next_run_time.strftime("%Y-%m-%d %H:%M:%S")
-                print(f"Scheduled weather update job will run at: {next_run}")
-            else:
-                print("Weather update job scheduled for 1:00 AM daily")
+            print("Hourly weather update job scheduled.")
         except Exception as e:
-            print(f"Error setting up weather update scheduler: {e}")
-            print("Weather updates will not be automatically scheduled")
-    
+            print(f"Error setting up hourly weather update scheduler: {e}")
+
     def update_weather_data(self):
         """Function to update weather data"""
-        print(f"Scheduled weather update triggered at {datetime.datetime.now()}")
+        print(f"Weather update triggered at {datetime.datetime.now()}")
         try:
             current_data, hourly_dataframe, daily_dataframe = get_weather_data()
             if current_data is not None:
+                self.last_weather_update = datetime.datetime.now()
                 print("Weather data successfully updated")
             else:
                 print("Failed to update weather data")
@@ -141,20 +141,24 @@ class Server:
         # API endpoint for fetching weather data
         @self.app.route('/api/weather')
         def weather_api():
-            current_data, hourly_dataframe, daily_dataframe = get_weather_data()
-            if current_data is None:
-                return jsonify({'error': 'Failed to fetch weather data'}), 500
+            try:
+                current_data, hourly_dataframe, daily_dataframe = get_weather_data()
+                if current_data is None:
+                    raise ValueError("Failed to fetch weather data")
                 
-            # Convert dataframes to dictionaries
-            hourly_dict = hourly_dataframe.to_dict('records') if hourly_dataframe is not None else None
-            daily_dict = daily_dataframe.to_dict('records') if daily_dataframe is not None else None
-            
-            return jsonify({
-                'current': current_data,
-                'hourly': hourly_dict,
-                'daily': daily_dict
-            })
-        
+                # Convert dataframes to dictionaries
+                hourly_dict = hourly_dataframe.to_dict('records') if hourly_dataframe is not None else None
+                daily_dict = daily_dataframe.to_dict('records') if daily_dataframe is not None else None
+                
+                return jsonify({
+                    'current': current_data,
+                    'hourly': hourly_dict,
+                    'daily': daily_dict
+                })
+            except Exception as e:
+                print(f"Error in /api/weather: {e}")
+                return jsonify({'error': 'Failed to fetch weather data'}), 500
+
         @self.app.route('/refresh-all', methods=['POST'])
         def refresh_all():
             """Endpoint to trigger a refresh on all connected clients."""
@@ -165,13 +169,27 @@ class Server:
                 print(f"Error sending refresh signal: {e}")  # Log any errors
             return jsonify({'status': 'success', 'message': 'Refresh signal sent to all clients'})
 
+        @self.app.route('/api/last-update')
+        def get_last_update():
+            try:
+                if self.last_weather_update:
+                    return jsonify({'last_update': self.last_weather_update.strftime('%Y-%m-%d %H:%M:%S')})
+                else:
+                    raise ValueError("No updates yet")
+            except Exception as e:
+                print(f"Error in /api/last-update: {e}")
+                return jsonify({'error': 'No updates yet'}), 500
+
         @self.app.route('/api/config')
         def get_config():
-            """Endpoint to fetch configuration values."""
-            config = configparser.ConfigParser()
-            config.read('config.ini')
-            debug_value = config.get('DEFAULT', 'DEBUG', fallback='false')
-            return jsonify({'DEBUG': debug_value})
+            try:
+                config = configparser.ConfigParser()
+                config.read('config.ini')
+                debug_value = config.get('DEFAULT', 'DEBUG', fallback='false')
+                return jsonify({'DEBUG': debug_value})
+            except Exception as e:
+                print(f"Error in /api/config: {e}")
+                return jsonify({'error': 'Failed to fetch config'}), 500
 
     def trigger_refresh_all(self):
         """Trigger a refresh-all command programmatically."""

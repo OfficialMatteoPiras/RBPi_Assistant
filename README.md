@@ -36,10 +36,31 @@ A responsive web interface for the Raspberry Pi 5 assistant with weather informa
 From the project root directory, run:
 
 ```bash
+screen -S nome_sessione
+# Ctrl + A, then D
+screen -ls
+screen -r RBPi5_Assistant_Session
+source venv/bin/activate
 python main.py
 ```
+To exit the virtual enviroment:
+```bash
+deactivate
+```
 
+To run on debug mode:
+```bash
+flask --app main:create_app --debug run
+```
 The server will start and be accessible at: `http://localhost:5000`
+
+run on normal mode:
+```bash
+python ./main.py
+```
+The server will start and be accessible at: `http://localhost:4000` or on the specified port inside the file config.ini
+
+
 
 ## Project Structure
 

@@ -36,14 +36,14 @@ def get_weather_data(latitude=45.408, longitude=11.8859):
         current = response.Current()
         current_data = {
             "time": pd.to_datetime(current.Time(), unit="s").tz_localize('UTC').tz_convert(tz),
-            "temperature_2m": current.Variables(0).Value(),
-            "relative_humidity_2m": current.Variables(1).Value(),
-            "apparent_temperature": current.Variables(2).Value(),
+            "temperature_2m": round(current.Variables(0).Value(), 2),
+            "relative_humidity_2m": round(current.Variables(1).Value(), 2),
+            "apparent_temperature": round(current.Variables(2).Value(), 2),
             "is_day": current.Variables(3).Value(),
-            "precipitation": current.Variables(4).Value(),
+            "precipitation": round(current.Variables(4).Value(), 2),
             "weather_code": int(current.Variables(5).Value()), # Ensure integer
-            "cloud_cover": current.Variables(6).Value(),
-            "wind_speed_10m": current.Variables(7).Value()
+            "cloud_cover": round(current.Variables(6).Value(), 2),
+            "wind_speed_10m": round(current.Variables(7).Value(), 2)
         }
 
         # --- Hourly Forecast ---
@@ -55,13 +55,13 @@ def get_weather_data(latitude=45.408, longitude=11.8859):
                 freq=pd.Timedelta(seconds=hourly.Interval()),
                 inclusive="left"
             ).tz_convert(tz), # Convert index to local time
-            "temperature_2m": hourly.Variables(0).ValuesAsNumpy(),
-            "relative_humidity_2m": hourly.Variables(1).ValuesAsNumpy(),
-            "apparent_temperature": hourly.Variables(2).ValuesAsNumpy(),
-            "precipitation": hourly.Variables(3).ValuesAsNumpy(),
+            "temperature_2m": hourly.Variables(0).ValuesAsNumpy().round(2),
+            "relative_humidity_2m": hourly.Variables(1).ValuesAsNumpy().round(2),
+            "apparent_temperature": hourly.Variables(2).ValuesAsNumpy().round(2),
+            "precipitation": hourly.Variables(3).ValuesAsNumpy().round(2),
             "weather_code": hourly.Variables(4).ValuesAsNumpy().astype(int), # Ensure integer
-            "cloud_cover": hourly.Variables(5).ValuesAsNumpy(),
-            "visibility": hourly.Variables(6).ValuesAsNumpy(),
+            "cloud_cover": hourly.Variables(5).ValuesAsNumpy().round(2),
+            "visibility": hourly.Variables(6).ValuesAsNumpy().round(2),
         }
         hourly_dataframe = pd.DataFrame(data=hourly_data)
 
@@ -75,14 +75,14 @@ def get_weather_data(latitude=45.408, longitude=11.8859):
                 inclusive="left"
             ).tz_convert(tz), # Convert index to local time
             "weather_code": daily.Variables(0).ValuesAsNumpy().astype(int), # Ensure integer
-            "temperature_2m_max": daily.Variables(1).ValuesAsNumpy(),
-            "temperature_2m_min": daily.Variables(2).ValuesAsNumpy(),
-            "apparent_temperature_max": daily.Variables(3).ValuesAsNumpy(),
-            "apparent_temperature_min": daily.Variables(4).ValuesAsNumpy(),
+            "temperature_2m_max": daily.Variables(1).ValuesAsNumpy().round(2),
+            "temperature_2m_min": daily.Variables(2).ValuesAsNumpy().round(2),
+            "apparent_temperature_max": daily.Variables(3).ValuesAsNumpy().round(2),
+            "apparent_temperature_min": daily.Variables(4).ValuesAsNumpy().round(2),
             # Convert sunrise/sunset timestamps
             "sunrise": pd.to_datetime(daily.Variables(5).ValuesInt64AsNumpy(), unit="s").tz_localize('UTC').tz_convert(tz),
             "sunset": pd.to_datetime(daily.Variables(6).ValuesInt64AsNumpy(), unit="s").tz_localize('UTC').tz_convert(tz),
-            "precipitation_sum": daily.Variables(7).ValuesAsNumpy(),
+            "precipitation_sum": daily.Variables(7).ValuesAsNumpy().round(2),
         }
         daily_dataframe = pd.DataFrame(data=daily_data)
 

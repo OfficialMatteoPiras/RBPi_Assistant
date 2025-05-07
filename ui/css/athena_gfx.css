@@ -127,3 +127,7 @@ h1, h2, h3 {
         flex-direction: column;
     }
 }
+
+[data-theme="dark"] .weather-icon img {
+    filter: invert(1) hue-rotate(180deg);
+}

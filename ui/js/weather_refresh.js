@@ -76,4 +76,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Check every 60 seconds
     setInterval(checkAndRefresh, 60000); // 60000 ms = 60 seconds
+
+    // Function to check if the client should refresh
+    function checkForUpdate() {
+        fetch('/api/config')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Failed to fetch config');
+                }
+                return response.json();
+            })
+            .then(config => {
+                const isDebug = config.DEBUG === 'true';
+
+                if (!isDebug) {
+                    fetch('/api/last-update')
+                        .then(response => {
+                            if (!response.ok) {
+                                throw new Error('Failed to fetch last update time');
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.last_update) {
+                                const lastUpdate = new Date(data.last_update);
+                                const now = new Date();
+                                const fiveMinutesAfterUpdate = new Date(lastUpdate.getTime() + 5 * 60 * 1000);
+
+                                if (now >= fiveMinutesAfterUpdate) {
+                                    console.log('Auto-refreshing the page after weather update...');
+                                    location.reload();
+                                }
+                            }
+                        })
+                        .catch(error => {
+                            console.error('Error checking last update:', error);
+                        });
+                }
+            })
+            .catch(error => {
+                console.error('Error checking config:', error);
+            });
+    }
+
+    // Check every minute
+    setInterval(checkForUpdate, 60000); // 60000 ms = 1 minute
 });
