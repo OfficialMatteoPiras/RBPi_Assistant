@@ -26,7 +26,7 @@ class Server:
         # Load configuration
         config = configparser.ConfigParser()
         config.read('config.ini')
-        self.port = int(config.get('DEFAULT', 'PORT', fallback=5000))  # Default to port 5000 if not specified
+        self.port = int(config.get('DEFAULT', 'PORT', fallback=8000))  # Default to port 8000 if not specified
         print(f"Configured port: {self.port}")  # Debugging log
 
         self.app = Flask(__name__, 
