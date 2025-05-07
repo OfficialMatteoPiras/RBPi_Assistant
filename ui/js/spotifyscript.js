@@ -189,20 +189,55 @@ function fetchSpotifyStatus() {
             if (!response.ok) {
                 // Handle HTTP error status
                 if (response.status === 500) {
-                    console.warn('Server error when fetching Spotify status');
-                    return { error: 'Server error' };
+                    console.warn('Server error when fetching Spotify status. Retrying in 30s...');
+                    setTimeout(fetchSpotifyStatus, 30000); // Retry after 30 seconds
+                    return { error: 'Server error', retry: true };
                 }
                 throw new Error(`API error: ${response.status} ${response.statusText}`);
             }
             return response.json();
         })
         .then(data => {
+            if (data && data.error && data.retry) {
+                // Skip UI update for retryable errors
+                return;
+            }
+            
             if (data && !data.error) {
                 console.log('Spotify status fetched successfully');
                 updateSpotifyUI(data);
+            } else if (data && data.error) {
+                console.warn('Spotify returned an error:', data.error);
+                // Update UI to show error state
+                updateErrorState(data.error);
             }
         })
-        .catch(error => console.error('Error fetching Spotify status:', error));
+        .catch(error => {
+            console.error('Error fetching Spotify status:', error);
+            // Update UI to show error state
+            updateErrorState("Connection error");
+        });
+}
+
+// New function to update UI with error state
+function updateErrorState(errorMessage) {
+    const currentTrackName = document.getElementById('current-track-name');
+    const currentTrackTime = document.getElementById('current-track-time');
+    const playButton = document.getElementById('play-button');
+    const pauseButton = document.getElementById('pause-button');
+    const favoriteIcon = document.getElementById('favorite-icon');
+    
+    if (currentTrackTimer) {
+        clearInterval(currentTrackTimer);
+        currentTrackTimer = null;
+    }
+    
+    currentTrackName.textContent = `Spotify not available: ${errorMessage}`;
+    currentTrackTime.textContent = '--:-- / --:--';
+    
+    favoriteIcon.style.display = 'none';
+    playButton.classList.add('hidden');
+    pauseButton.classList.add('hidden');
 }
 
 // Function to check if a track is in favorites

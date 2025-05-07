@@ -4,6 +4,8 @@ from spotipy.oauth2 import SpotifyOAuth
 from cryptography.fernet import Fernet
 import os
 import json
+import socket
+import time
 
 class SpotifyClient:
     def __init__(self, client_id, client_secret, redirect_uri, token_file='spotify_token.json', key_file='encryption.key'):
@@ -86,15 +88,34 @@ class SpotifyClient:
         """Refresh the Spotify access token if it has expired."""
         try:
             token_info = self.auth_manager.get_cached_token()
-            if not token_info or self.auth_manager.is_token_expired(token_info):
-                print("Refreshing Spotify token...")
-                token_info = self.auth_manager.refresh_access_token(token_info['refresh_token'])
-                encryption_key = self.load_or_generate_encryption_key()
-                fernet = Fernet(encryption_key)
-                self.save_encrypted_token(token_info, fernet)
-                print("Spotify token refreshed successfully.")
+            
+            if token_info is None:
+                print("No token info available for refresh. Need to re-authenticate.")
+                return False
+                
+            if not self.auth_manager.is_token_expired(token_info):
+                # Token is still valid
+                return True
+                
+            if 'refresh_token' not in token_info:
+                print("Refresh token not found in token info. Need to re-authenticate.")
+                return False
+            
+            print("Refreshing Spotify token...")
+            token_info = self.auth_manager.refresh_access_token(token_info['refresh_token'])
+            
+            if not token_info:
+                print("Failed to refresh token.")
+                return False
+                
+            encryption_key = self.load_or_generate_encryption_key()
+            fernet = Fernet(encryption_key)
+            self.save_encrypted_token(token_info, fernet)
+            print("Spotify token refreshed successfully.")
+            return True
         except Exception as e:
             print(f"Error refreshing Spotify token: {e}")
+            return False
 
     def save_encrypted_token(self, token_info, fernet):
         """Save the Spotify token in an encrypted file."""
@@ -122,12 +143,43 @@ class SpotifyClient:
         if not self.spotify:
             print("Spotify client is not initialized. Please authenticate.")
             return None
-        try:
-            self.refresh_token()
-            return self.spotify.current_playback()
-        except Exception as e:
-            print(f"Error fetching Spotify playback status: {e}")
-            return None
+            
+        max_retries = 3
+        retry_delay = 1.0  # seconds
+        
+        for attempt in range(max_retries):
+            try:
+                success = self.refresh_token()
+                if not success:
+                    print("Failed to refresh token, cannot fetch playback status.")
+                    return None
+                
+                # Implement a socket timeout to avoid socket issues
+                original_timeout = socket.getdefaulttimeout()
+                socket.setdefaulttimeout(10)  # 10 seconds timeout
+                
+                try:
+                    playback = self.spotify.current_playback()
+                    return playback
+                finally:
+                    # Reset the timeout
+                    socket.setdefaulttimeout(original_timeout)
+                    
+            except socket.error as se:
+                # Specifically handle socket errors like "Address already in use"
+                if "Address already in use" in str(se) and attempt < max_retries - 1:
+                    print(f"Socket error (attempt {attempt+1}/{max_retries}): {se}")
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+                else:
+                    print(f"Socket error: {se}")
+                    return None
+            except Exception as e:
+                print(f"Error fetching Spotify playback status: {e}")
+                return None
+        
+        print(f"Failed to fetch Spotify playback after {max_retries} attempts")
+        return None
 
     def send_command(self, command):
         """Send a command to control Spotify playback."""
@@ -135,7 +187,10 @@ class SpotifyClient:
             print("Spotify client is not initialized. Please authenticate.")
             return False
         try:
-            self.refresh_token()
+            success = self.refresh_token()
+            if not success:
+                return False
+                
             if command == 'play':
                 self.spotify.start_playback()
             elif command == 'pause':
@@ -168,7 +223,10 @@ class SpotifyClient:
                 print("Spotify client is not initialized. Please authenticate.")
                 return None
                 
-            self.refresh_token()
+            success = self.refresh_token()
+            if not success:
+                return None
+                
             # Utilizziamo il metodo corretto e gestiamo meglio gli errori
             queue_data = self.spotify._get("me/player/queue")
             if not queue_data or not isinstance(queue_data, dict):
