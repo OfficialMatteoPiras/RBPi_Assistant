@@ -7,6 +7,7 @@
     <link rel="stylesheet" href="/static/css/athena_gfx.css">
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
+    <script src="/static/js/spotifyscript.js"></script>
 </head>
 <body>
     <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark/light mode">🌓</button>
@@ -95,6 +96,36 @@
                     <p>Loading forecast data...</p>
                 </div>
                 {% endif %}
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Spotify Player</h2>
+            <div class="spotify-card">
+                <h3>Now Playing</h3>
+                <div class="spotify-details">
+                    <!-- Current Track -->
+                    <div class="current-track">
+                        <div class="album-cover">
+                            <img id="current-album-cover" src="/static/icons/unknown.png" alt="Album cover" onerror="this.src='/static/icons/unknown.png'">
+                        </div>
+                        <div class="track-details">
+                            <p id="current-track-name" class="track-name">Loading...</p>
+                            <p id="current-track-time" class="track-time">--:-- / --:--</p>
+                        </div>
+                    </div>
+                    <!-- Next Track -->
+                    <div class="next-track">
+                        <p class="next-label">Next</p>
+                        <div class="next-track-details">
+                            <img id="next-album-cover" src="/static/icons/unknown.png" alt="Next album cover" onerror="this.src='/static/icons/unknown.png'">
+                            <div class="next-track-info">
+                                <p id="next-track-name" class="track-name">Loading title...</p>
+                                <p id="next-track-artist" class="track-artist">Loading artist...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

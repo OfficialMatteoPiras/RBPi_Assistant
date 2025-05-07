@@ -1,6 +1,7 @@
 from flask import Flask, render_template, jsonify, request
 from flask_socketio import SocketIO
 from flask_cors import CORS
+from src.spotify import SpotifyClient  # Import SpotifyClient
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 from src.wather_api import get_weather_data
@@ -13,6 +14,8 @@ import datetime
 import threading
 import time
 import configparser
+from cryptography.fernet import Fernet
+import json
 
 class Server:
     def __init__(self, template_folder='../ui/html', host='0.0.0.0'):
@@ -33,6 +36,13 @@ class Server:
         CORS(self.app)  # Enable CORS for Flask
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")  # Ensure CORS is enabled for all origins
         self.host = host
+
+        self.spotify_client = SpotifyClient(
+            client_id="291a3fa0a88b4666863dfca972cae948",
+            client_secret="1a4ae847aac54988b09201b57d3d7cc4",
+            redirect_uri="http://127.0.0.1:5000/callback"  # Update the port here
+        )
+        self.spotify_state = None  # Store the current Spotify state
 
         # Start file watcher in a separate thread
         self.start_file_watcher()
@@ -72,9 +82,9 @@ class Server:
             current_data, hourly_dataframe, daily_dataframe = get_weather_data()
             if current_data is not None:
                 self.last_weather_update = datetime.datetime.now()
-                print("Weather data successfully updated")
+                print("Weather data successfully updated at {self.last_weather_update}")
             else:
-                print("Failed to update weather data")
+                print("Failed to update weather data - No data received.")
         except Exception as e:
             print(f"Error updating weather data: {e}")
     
@@ -175,10 +185,11 @@ class Server:
                 if self.last_weather_update:
                     return jsonify({'last_update': self.last_weather_update.strftime('%Y-%m-%d %H:%M:%S')})
                 else:
-                    raise ValueError("No updates yet")
+                    print("No weather updates have been made yet.")
+                    return jsonify({'error': 'No weather updates have been made yet.'}), 404
             except Exception as e:
                 print(f"Error in /api/last-update: {e}")
-                return jsonify({'error': 'No updates yet'}), 500
+                return jsonify({'error': 'Failed to fetch last update'}), 500
 
         @self.app.route('/api/config')
         def get_config():
@@ -190,6 +201,86 @@ class Server:
             except Exception as e:
                 print(f"Error in /api/config: {e}")
                 return jsonify({'error': 'Failed to fetch config'}), 500
+
+        @self.app.route('/api/spotify')
+        def spotify_status():
+            """Fetch the current Spotify playback status."""
+            playback_status = self.spotify_client.get_current_playback()
+            if playback_status:
+                return jsonify(playback_status)
+            else:
+                return jsonify({'error': 'Failed to fetch Spotify status'}), 500
+
+        @self.app.route('/api/spotify/command', methods=['POST'])
+        def spotify_command():
+            """Send a command to control Spotify playback."""
+            command = request.json.get('command')
+            if self.spotify_client.send_command(command):
+                return jsonify({'status': 'success'})
+            else:
+                return jsonify({'error': 'Failed to execute command'}), 500
+
+        @self.app.route('/callback')
+        def spotify_callback():
+            """Handle Spotify authentication callback."""
+            try:
+                code = request.args.get('code')
+                if not code:
+                    print("Error: No authorization code received in callback.")
+                    print(f"Request args: {request.args}")  # Log the full request arguments for debugging
+                    return "Authorization failed. No code received. Check the logs for details."
+
+                print(f"Authorization code received: {code}")
+                token_info = self.spotify_client.auth_manager.get_access_token(code)
+                if not token_info:
+                    print("Error: Failed to retrieve token info.")
+                    return "Authorization failed. Could not retrieve token. Check the logs for details."
+
+                print(f"Token info received: {token_info}")
+                encryption_key = self.spotify_client.load_or_generate_encryption_key()
+                fernet = Fernet(encryption_key)
+                self.spotify_client.save_encrypted_token(token_info, fernet)
+                self.spotify_client.initialize_client()
+                print("Spotify authentication successful and client initialized.")
+                return "Spotify authentication successful! You can close this tab."
+            except Exception as e:
+                print(f"Error during Spotify callback: {e}")
+                return "Spotify authentication failed. Check the server logs for details."
+
+        @self.app.route('/api/spotify/artist/<artist_id>')
+        def spotify_artist(artist_id):
+            """Fetch metadata for a given artist."""
+            artist_data = self.spotify_client.get_artist_data(artist_id)
+            if artist_data:
+                return jsonify(artist_data)
+            else:
+                return jsonify({'error': 'Failed to fetch artist data'}), 500
+
+        @self.app.route('/api/spotify/track/<track_id>')
+        def spotify_track(track_id):
+            """Fetch metadata for a given track."""
+            try:
+                track_data = self.spotify_client.get_track_data(track_id)
+                if track_data:
+                    return jsonify(track_data)
+                else:
+                    return jsonify({'error': 'Failed to fetch track data'}), 500
+            except Exception as e:
+                print(f"Error in /api/spotify/track/{track_id}: {e}")
+                return jsonify({'error': 'Failed to fetch track data'}), 500
+
+        @self.app.route('/api/spotify/queue')
+        def spotify_queue():
+            """Fetch the Spotify playback queue."""
+            try:
+                queue_data = self.spotify_client.get_queue()
+                if queue_data:
+                    return jsonify(queue_data)
+                else:
+                    return jsonify({'error': 'Failed to fetch Spotify queue'}), 500
+            except Exception as e:
+                print(f"Error in /api/spotify/queue: {e}")
+                return jsonify({'error': 'Failed to fetch Spotify queue'}), 500
 
     def trigger_refresh_all(self):
         """Trigger a refresh-all command programmatically."""
@@ -218,7 +309,7 @@ class Server:
     def run(self, debug=True):
         print("Starting RBPi Assistant server...")
         print(f"Access the web interface at http://{self.host if self.host != '0.0.0.0' else 'localhost'}:{self.port}")
-        self.socketio.run(self.app, host=self.host, port=self.port, debug=debug)  # Use SocketIO to run the app
+        self.socketio.run(self.app, host=self.host, port=self.port, debug=debug)  # Ensure the port matches
     
     def shutdown(self):
         """Clean shutdown of the server and scheduler"""
