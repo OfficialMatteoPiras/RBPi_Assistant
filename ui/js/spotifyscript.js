@@ -1,7 +1,6 @@
 let currentTrackTimer = null;
 let currentTrackProgress = 0;
 let currentTrackDuration = 0;
-let periodicPollingTimer = null;
 
 function fetchSpotifyStatus() {
     fetch('/api/spotify')
@@ -20,6 +19,9 @@ function fetchSpotifyStatus() {
             const nextAlbumCover = document.getElementById('next-album-cover');
             const nextTrackName = document.getElementById('next-track-name');
             const nextTrackArtist = document.getElementById('next-track-artist');
+            const favoriteIcon = document.getElementById('favorite-icon');
+            const playButton = document.getElementById('play-button');
+            const pauseButton = document.getElementById('pause-button');
 
             if (data && data.is_playing) {
                 // Current track details
@@ -27,6 +29,22 @@ function fetchSpotifyStatus() {
                 currentTrackName.textContent = data.item.name; // Only the title
                 currentTrackProgress = data.progress_ms;
                 currentTrackDuration = data.item.duration_ms;
+
+                // Check if track is in favorites
+                checkIfFavorite(data.item.id)
+                    .then(isFavorite => {
+                        if (isFavorite) {
+                            favoriteIcon.classList.add('active');
+                            favoriteIcon.classList.remove('inactive');
+                        } else {
+                            favoriteIcon.classList.add('inactive');
+                            favoriteIcon.classList.remove('active');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error checking favorite status:', error);
+                        favoriteIcon.style.display = 'none';
+                    });
 
                 const progressMinutes = Math.floor(currentTrackProgress / 60000);
                 const progressSeconds = Math.floor((currentTrackProgress % 60000) / 1000).toString().padStart(2, '0');
@@ -61,6 +79,10 @@ function fetchSpotifyStatus() {
                     clearInterval(currentTrackTimer);
                 }
                 currentTrackTimer = setInterval(updateTrackProgress, 1000);
+
+                // Update play/pause button visibility
+                playButton.classList.add('hidden');
+                pauseButton.classList.remove('hidden');
             } else if (data && !data.is_playing) {
                 // If playback is stopped, stop the timer and update the time
                 if (currentTrackTimer) {
@@ -71,14 +93,54 @@ function fetchSpotifyStatus() {
                 const durationMinutes = Math.floor(currentTrackDuration / 60000);
                 const durationSeconds = Math.floor((currentTrackDuration % 60000) / 1000).toString().padStart(2, '0');
                 currentTrackTime.textContent = `${progressMinutes}:${progressSeconds} / ${durationMinutes}:${durationSeconds}`;
+
+                // Update play/pause button visibility
+                playButton.classList.remove('hidden');
+                pauseButton.classList.add('hidden');
             } else {
                 spotifyInfo.innerHTML = '<p>Spotify is not playing.</p>';
                 if (currentTrackTimer) {
                     clearInterval(currentTrackTimer);
                 }
+
+                // Hide both buttons if Spotify isn't available
+                playButton.classList.add('hidden');
+                pauseButton.classList.add('hidden');
             }
         })
         .catch(error => console.error('Error fetching Spotify status:', error));
+}
+
+// Function to check if a track is in favorites
+function checkIfFavorite(trackId) {
+    return fetch(`/api/spotify/is-favorite/${trackId}`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Favorite check API error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            return data.is_favorite;
+        });
+}
+
+// Function to toggle favorite status
+function toggleFavorite(trackId) {
+    return fetch('/api/spotify/toggle-favorite', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ track_id: trackId })
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Toggle favorite API error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            return data;
+        });
 }
 
 function updateTrackProgress() {
@@ -115,34 +177,74 @@ function sendSpotifyCommand(command) {
         .catch(error => console.error('Error sending Spotify command:', error));
 }
 
-// Periodic polling to detect changes from other devices
-function startPeriodicPolling() {
-    if (periodicPollingTimer) {
-        clearInterval(periodicPollingTimer);
-    }
-    periodicPollingTimer = setInterval(fetchSpotifyStatus, 10000); // Poll every 10 seconds
+// Funzione per aggiornare manualmente
+function manualRefresh() {
+    // Aggiorna le informazioni di Spotify
+    fetchSpotifyStatus();
 }
 
 // Add event listener setup for when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Spotify status on page load
     fetchSpotifyStatus();
-    startPeriodicPolling();
     
-    // Add event listeners for buttons if they exist
+    // Add event listeners for playback control icons
     const playButton = document.getElementById('play-button');
-    if (playButton) {
-        playButton.addEventListener('click', () => sendSpotifyCommand('play'));
-    }
-    
     const pauseButton = document.getElementById('pause-button');
-    if (pauseButton) {
-        pauseButton.addEventListener('click', () => sendSpotifyCommand('pause'));
+    
+    if (playButton) {
+        playButton.addEventListener('click', () => {
+            sendSpotifyCommand('play');
+            playButton.classList.add('hidden');
+            pauseButton.classList.remove('hidden');
+        });
     }
     
-    // Optional: Add listeners for skip buttons if you have them
-    const skipButton = document.getElementById('skip-button');
-    if (skipButton) {
-        skipButton.addEventListener('click', () => sendSpotifyCommand('skip'));
+    if (pauseButton) {
+        pauseButton.addEventListener('click', () => {
+            sendSpotifyCommand('pause');
+            pauseButton.classList.add('hidden');
+            playButton.classList.remove('hidden');
+        });
     }
+    
+    // Aggiungiamo event listener per il pulsante di aggiornamento
+    const refreshButton = document.getElementById('refresh-button');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', manualRefresh);
+    }
+    
+    // Add event listener for favorite icon
+    const favoriteIcon = document.getElementById('favorite-icon');
+    if (favoriteIcon) {
+        favoriteIcon.addEventListener('click', function() {
+            // Get current track ID
+            fetch('/api/spotify')
+                .then(response => response.json())
+                .then(data => {
+                    if (data && data.item) {
+                        const trackId = data.item.id;
+                        toggleFavorite(trackId)
+                            .then(result => {
+                                if (result.is_favorite) {
+                                    favoriteIcon.classList.add('active');
+                                    favoriteIcon.classList.remove('inactive');
+                                } else {
+                                    favoriteIcon.classList.add('inactive');
+                                    favoriteIcon.classList.remove('active');
+                                }
+                            })
+                            .catch(error => console.error('Error toggling favorite:', error));
+                    }
+                })
+                .catch(error => console.error('Error getting current track:', error));
+        });
+    }
+    
+    // Aggiorniamo quando il documento diventa visibile
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            fetchSpotifyStatus();
+        }
+    });
 });

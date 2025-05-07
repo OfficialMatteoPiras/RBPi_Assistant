@@ -54,7 +54,7 @@ WEATHER_CODE_TO_ICON = {
 def update_icon_mappings():
     """Scan the icons directory and update the WEATHER_CODE_TO_ICON dictionary."""
     script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    icons_dir = os.path.join(script_dir, 'ui', 'icons')
+    icons_dir = os.path.join(script_dir, 'ui', 'icons', 'weather')
     
     if not os.path.exists(icons_dir):
         print(f"Warning: Icons directory not found at {icons_dir}")
@@ -83,11 +83,11 @@ def get_icon_filename(weather_code, is_day=True):
         is_day (bool): Whether it's daytime (for day/night variations)
         
     Returns:
-        str: Icon filename
+        str: Icon filename with path relative to the icons directory
     """
     # Get the icons directory path
     script_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    icons_dir = os.path.join(script_dir, 'ui', 'icons')
+    icons_dir = os.path.join(script_dir, 'ui', 'icons', 'weather')
     
     # Get the base icon name
     icon_name = WEATHER_CODE_TO_ICON.get(weather_code, "unknown")
@@ -147,10 +147,10 @@ def get_icon_filename(weather_code, is_day=True):
     for icon_option in icon_options:
         icon_path = os.path.join(icons_dir, icon_option)
         if os.path.exists(icon_path):
-            return icon_option
+            return "weather/" + icon_option  # Return path with weather/ prefix
     
     # If all else fails, return unknown.png
-    return "unknown.png"
+    return "weather/unknown.png"  # Update the fallback path as well
 
 def get_weather_description(code):
     """Get a human-readable description for a weather code."""

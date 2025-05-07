@@ -18,10 +18,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // Refresh weather data every 15 minutes (900000 ms)
-    setInterval(refreshWeather, 900000);
+    // Remove all periodic refresh timers
+    // setInterval(refreshWeather, 900000); // 15 minutes
 
-    // WebSocket connection to listen for refresh commands
+    // Keep the WebSocket connection to listen for refresh commands
     const socket = io({ transports: ['websocket', 'polling'] }); // Ensure proper transport methods
 
     socket.on('connect', () => {
@@ -42,83 +42,69 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log(`Event received: ${eventName}`, args);
     });
 
-    // Automatically reload the page every 60 seconds
-    let debug_interval = 10000; // 10 seconds in milliseconds
-    let real_interval = 60000*60; // 60 seconds * 60 minutes in milliseconds
-    setInterval(() => {
-        console.log('Auto-refreshing the page...');
-        location.reload();
-    }, real_interval); // 60000 ms = 60 seconds
+    // Remove the automatic page reload
+    // setInterval(() => {
+    //     console.log('Auto-refreshing the page...');
+    //     location.reload();
+    // }, 60*60*1000); // 1 hour
 
-    // Function to check debug mode and refresh the page
-    function checkAndRefresh() {
-        fetch('/api/config')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Failed to fetch config');
-                }
-                return response.json();
-            })
-            .then(config => {
-                const now = new Date();
-                const isDebug = config.DEBUG === 'true';
-                const isOneTenAM = now.getHours() === 1 && now.getMinutes() === 10;
+    // Remove other periodic check functions
+    // function checkAndRefresh() { ... }
+    // setInterval(checkAndRefresh, 60000);
+    // function checkForUpdate() { ... }
+    // setInterval(checkForUpdate, 60000);
 
-                if (isDebug || isOneTenAM) {
-                    console.log('Auto-refreshing the page...');
-                    location.reload();
-                }
-            })
-            .catch(error => {
-                console.error('Error checking config:', error);
-            });
+    // Add event listener for manual refresh button
+    const refreshWeatherButton = document.getElementById('refresh-weather-button');
+    if (refreshWeatherButton) {
+        refreshWeatherButton.addEventListener('click', function() {
+            refreshWeather();
+        });
     }
 
-    // Check every 60 seconds
-    setInterval(checkAndRefresh, 60000); // 60000 ms = 60 seconds
+    // Refresh info when the page becomes visible again
+    document.addEventListener('visibilitychange', function() {
+        if (!document.hidden) {
+            console.log('Page is now visible, refreshing data...');
+            // Do not reload the page immediately, but refresh the data discreetly
+            refreshWeather();
+            // Also refresh Spotify data if the function is available
+            if (typeof fetchSpotifyStatus === 'function') {
+                fetchSpotifyStatus();
+            }
+        }
+    });
 
-    // Function to check if the client should refresh
-    function checkForUpdate() {
-        fetch('/api/config')
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Failed to fetch config');
-                }
-                return response.json();
-            })
-            .then(config => {
-                const isDebug = config.DEBUG === 'true';
+    // Add handler for user interactions to refresh data
+    let lastInteraction = Date.now();
+    let interactionTimeout = null;
 
-                if (!isDebug) {
-                    fetch('/api/last-update')
-                        .then(response => {
-                            if (!response.ok) {
-                                throw new Error('Failed to fetch last update time');
-                            }
-                            return response.json();
-                        })
-                        .then(data => {
-                            if (data.last_update) {
-                                const lastUpdate = new Date(data.last_update);
-                                const now = new Date();
-                                const fiveMinutesAfterUpdate = new Date(lastUpdate.getTime() + 5 * 60 * 1000);
-
-                                if (now >= fiveMinutesAfterUpdate) {
-                                    console.log('Auto-refreshing the page after weather update...');
-                                    location.reload();
-                                }
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error checking last update:', error);
-                        });
-                }
-            })
-            .catch(error => {
-                console.error('Error checking config:', error);
-            });
+    function onUserInteraction() {
+        const now = Date.now();
+        // Refresh only if at least 5 minutes have passed since the last interaction
+        if (now - lastInteraction > 5 * 60 * 1000) {
+            lastInteraction = now;
+            refreshWeather();
+            if (typeof fetchSpotifyStatus === 'function') {
+                fetchSpotifyStatus();
+            }
+        }
+        
+        // Reset the timeout
+        if (interactionTimeout) {
+            clearTimeout(interactionTimeout);
+        }
+        
+        // Set a timeout to refresh after a period of inactivity
+        interactionTimeout = setTimeout(() => {
+            refreshWeather();
+            if (typeof fetchSpotifyStatus === 'function') {
+                fetchSpotifyStatus();
+            }
+        }, 5 * 60 * 1000); // 5 minutes of inactivity
     }
 
-    // Check every minute
-    setInterval(checkForUpdate, 60000); // 60000 ms = 1 minute
+    // Add event listeners to detect user interaction
+    document.addEventListener('click', onUserInteraction);
+    document.addEventListener('scroll', onUserInteraction);
 });

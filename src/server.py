@@ -282,6 +282,54 @@ class Server:
                 print(f"Error in /api/spotify/queue: {e}")
                 return jsonify({'error': 'Failed to fetch Spotify queue'}), 500
 
+        @self.app.route('/api/spotify/is-favorite/<track_id>')
+        def is_track_favorite(track_id):
+            """Check if a track is in the user's favorites."""
+            try:
+                if not self.spotify_client.spotify:
+                    return jsonify({'error': 'Spotify client not initialized'}), 500
+                    
+                self.spotify_client.refresh_token()
+                # Check if the track is in the user's saved tracks
+                results = self.spotify_client.spotify.current_user_saved_tracks_contains([track_id])
+                if results and len(results) > 0:
+                    return jsonify({'is_favorite': results[0]})
+                return jsonify({'is_favorite': False})
+            except Exception as e:
+                print(f"Error checking if track is favorite: {e}")
+                return jsonify({'error': 'Failed to check favorite status', 'details': str(e)}), 500
+        
+        @self.app.route('/api/spotify/toggle-favorite', methods=['POST'])
+        def toggle_track_favorite():
+            """Toggle a track's favorite status."""
+            try:
+                data = request.json
+                track_id = data.get('track_id')
+                if not track_id:
+                    return jsonify({'error': 'No track_id provided'}), 400
+                    
+                if not self.spotify_client.spotify:
+                    return jsonify({'error': 'Spotify client not initialized'}), 500
+                    
+                self.spotify_client.refresh_token()
+                
+                # Check current status
+                results = self.spotify_client.spotify.current_user_saved_tracks_contains([track_id])
+                is_favorite = results[0] if results and len(results) > 0 else False
+                
+                # Toggle status
+                if is_favorite:
+                    self.spotify_client.spotify.current_user_saved_tracks_delete([track_id])
+                    print(f"Removed track {track_id} from favorites")
+                    return jsonify({'is_favorite': False, 'message': 'Track removed from favorites'})
+                else:
+                    self.spotify_client.spotify.current_user_saved_tracks_add([track_id])
+                    print(f"Added track {track_id} to favorites")
+                    return jsonify({'is_favorite': True, 'message': 'Track added to favorites'})
+            except Exception as e:
+                print(f"Error toggling favorite status: {e}")
+                return jsonify({'error': 'Failed to toggle favorite status', 'details': str(e)}), 500
+
     def trigger_refresh_all(self):
         """Trigger a refresh-all command programmatically."""
         with self.app.test_request_context('/refresh-all', method='POST'):

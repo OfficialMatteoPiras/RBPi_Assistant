@@ -16,10 +16,20 @@
         <div class="panel">
             <h1>Athena Assistant</h1>
             <p>Your personal voice assistant powered by RBPi5</p>
+            <!-- Aggiungiamo il pulsante di aggiornamento manuale -->
+            <div class="refresh-control">
+                <button id="refresh-button" class="refresh-button" title="Aggiorna tutti i dati">
+                    <span class="refresh-icon">↻</span> Aggiorna
+                </button>
+            </div>
         </div>
         
         <div class="panel">
             <h2>Weather Information</h2>
+            <div class="weather-info-header">
+                <span>Condizioni meteo</span>
+                <button id="refresh-weather-button" class="refresh-icon-button" title="Aggiorna meteo">↻</button>
+            </div>
             <div class="weather-info">
                 {% if weather %}
                 <!-- Current Weather Card -->
@@ -27,7 +37,7 @@
                     <h3>Current Weather</h3>
                     <div class="weather-icon">
                         <img src="/static/icons/{{ weather.current.icon_filename }}" alt="{{ weather.current.weather_description }}" 
-                             onerror="this.src='/static/icons/unknown.png'">
+                             onerror="this.src='/static/icons/weather/unknown.png'">
                     </div>
                     <div class="weather-details">
                         <p class="weather-description">{{ weather.current.weather_description }}</p>
@@ -47,7 +57,7 @@
                     {% if weather.today %}
                     <div class="weather-icon">
                         <img src="/static/icons/{{ weather.today.icon_filename }}" alt="{{ weather.today.weather_description }}"
-                             onerror="this.src='/static/icons/unknown.png'">
+                             onerror="this.src='/static/icons/weather/unknown.png'">
                     </div>
                     <div class="weather-details">
                         <p class="weather-description">{{ weather.today.weather_description }}</p>
@@ -67,7 +77,7 @@
                     {% if weather.tomorrow %}
                     <div class="weather-icon">
                         <img src="/static/icons/{{ weather.tomorrow.icon_filename }}" alt="{{ weather.tomorrow.weather_description }}"
-                             onerror="this.src='/static/icons/unknown.png'">
+                             onerror="this.src='/static/icons/weather/unknown.png'">
                     </div>
                     <div class="weather-details">
                         <p class="weather-description">{{ weather.tomorrow.weather_description }}</p>
@@ -102,16 +112,24 @@
         <div class="panel">
             <h2>Spotify Player</h2>
             <div class="spotify-card">
-                <h3>Now Playing</h3>
+                <div class="spotify-header">
+                    <h3>Now Playing</h3>
+                    <button id="refresh-spotify-button" class="refresh-icon-button" title="Aggiorna Spotify">↻</button>
+                </div>
                 <div class="spotify-details">
                     <!-- Current Track -->
                     <div class="current-track">
                         <div class="album-cover">
                             <img id="current-album-cover" src="/static/icons/unknown.png" alt="Album cover" onerror="this.src='/static/icons/unknown.png'">
+                            <div id="favorite-icon" class="favorite-icon">❤️</div>
                         </div>
                         <div class="track-details">
                             <p id="current-track-name" class="track-name">Loading...</p>
                             <p id="current-track-time" class="track-time">--:-- / --:--</p>
+                            <div class="playback-controls">
+                                <img id="play-button" class="control-icon" src="/static/icons/spotify/play.png" alt="Play" title="Play">
+                                <img id="pause-button" class="control-icon" src="/static/icons/spotify/pause.png" alt="Pause" title="Pause">
+                            </div>
                         </div>
                     </div>
                     <!-- Next Track -->

@@ -16,7 +16,7 @@ class SpotifyClient:
             client_id=client_id,
             client_secret=client_secret,
             redirect_uri=redirect_uri,
-            scope="user-read-playback-state,user-modify-playback-state"
+            scope="user-read-playback-state,user-modify-playback-state,user-library-read,user-library-modify"
         )
         self.spotify = None
         self.initialize_client()
