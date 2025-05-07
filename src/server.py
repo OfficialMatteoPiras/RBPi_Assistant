@@ -37,10 +37,12 @@ class Server:
         self.socketio = SocketIO(self.app, cors_allowed_origins="*")  # Enable WebSocket support
         self.host = host
 
+        # Use correct port for redirect URL based on configuration
+        redirect_port = self.port
         self.spotify_client = SpotifyClient(
             client_id="291a3fa0a88b4666863dfca972cae948",
             client_secret="1a4ae847aac54988b09201b57d3d7cc4",
-            redirect_uri="http://127.0.0.1:5000/callback"  # Update the port here
+            redirect_uri=f"http://127.0.0.1:{redirect_port}/callback"  # Update the port here
         )
         self.spotify_state = None  # Store the current Spotify state
         self.weather_state = None  # Store the current weather state
@@ -271,7 +273,7 @@ class Server:
                         'error': 'Spotify client not authenticated',
                         'auth_url': auth_url,
                         'needs_auth': True
-                    }), 401  # Unauthorized status code
+                    }), 401  # Use 401 Unauthorized for auth issues
                     
                 playback_status = self.spotify_client.get_current_playback()
                 if playback_status:
@@ -285,7 +287,13 @@ class Server:
                     })
             except Exception as e:
                 print(f"Error in /api/spotify: {e}")
-                return jsonify({'error': 'Failed to fetch Spotify status', 'details': str(e)}), 500
+                # Make sure error responses don't cause 500 errors
+                return jsonify({
+                    'error': 'Failed to fetch Spotify status', 
+                    'details': str(e),
+                    'needs_auth': True,
+                    'auth_url': self.spotify_client.auth_manager.get_authorize_url()
+                }), 401
 
         @self.app.route('/api/spotify/command', methods=['POST'])
         def spotify_command():

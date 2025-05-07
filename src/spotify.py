@@ -38,22 +38,44 @@ class SpotifyClient:
                     # Verify the token is actually valid before proceeding
                     if not token_info or 'refresh_token' not in token_info:
                         print("Token file exists but contains invalid data. Need fresh authentication.")
+                        # Rimuovi il token corrotto
+                        os.rename(self.token_file, f"{self.token_file}.backup")
+                        print(f"Renamed corrupt token file to {self.token_file}.backup")
                         return False
                         
-                    # Save token to cache and test if it works
+                    # Save token to cache
                     self.auth_manager.cache_handler.save_token_to_cache(token_info)
                     
-                    # Test if we can refresh the token
-                    test_success = self.refresh_token()
-                    if test_success:
-                        self.spotify = Spotify(auth_manager=self.auth_manager)
-                        print("Spotify client fully initialized with a working token.")
+                    # Create a Spotify client instance
+                    self.spotify = Spotify(auth_manager=self.auth_manager)
+                    
+                    # Validate the token works
+                    try:
+                        # Try to use the token with a lightweight API call
+                        self.spotify.current_user()
+                        print("Spotify token validated successfully.")
                         return True
-                    else:
-                        print("Saved token failed validation test. Need re-authentication.")
-                        return False
+                    except Exception as e:
+                        print(f"Token validation failed: {e}")
+                        # Try to refresh the token
+                        if self.refresh_token():
+                            print("Token refreshed successfully.")
+                            return True
+                        else:
+                            print("Failed to refresh token. Need re-authentication.")
+                            # Remove invalid token
+                            os.rename(self.token_file, f"{self.token_file}.invalid")
+                            self.spotify = None
+                            return False
             except Exception as e:
                 print(f"Error loading Spotify token: {e}")
+                # Backup the corrupted token file
+                try:
+                    if os.path.exists(self.token_file):
+                        os.rename(self.token_file, f"{self.token_file}.error")
+                        print(f"Renamed problematic token file to {self.token_file}.error")
+                except Exception as rename_error:
+                    print(f"Error renaming token file: {rename_error}")
                 return False
 
         print("No valid Spotify token found. Please authenticate.")

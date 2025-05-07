@@ -222,40 +222,60 @@ function authenticateSpotify() {
         .then(response => response.json())
         .then(data => {
             if (data.auth_url) {
-                // Open the auth URL in a new window
-                window.open(data.auth_url, '_blank');
-                alert('Please login to Spotify in the new window. After authorization, refresh this page.');
+                console.log('Opening Spotify authentication page:', data.auth_url);
+                // Open auth URL in a new window/tab
+                const authWindow = window.open(data.auth_url, '_blank');
+                
+                if (!authWindow) {
+                    alert('Pop-up blocked! Please allow pop-ups for this site and try again.');
+                } else {
+                    alert('Please complete the authentication in the opened window. After authorization, refresh this page.');
+                }
             } else {
                 console.error('Failed to get auth URL:', data.error || 'Unknown error');
+                alert('Authentication failed: Could not get authorization URL. Please try again.');
             }
         })
         .catch(error => {
             console.error('Error fetching auth URL:', error);
+            alert('Authentication error: Could not connect to server. Please try again.');
         });
 }
 
 function fetchSpotifyStatus() {
     fetch('/api/spotify')
         .then(response => {
+            // Handle 401 Unauthorized (authentication required)
+            if (response.status === 401) {
+                return response.json().then(data => {
+                    console.warn('Authentication required for Spotify');
+                    updateErrorState('not authenticated');
+                    
+                    // Automatically show auth button
+                    const trackDetails = document.querySelector('.track-details');
+                    if (trackDetails && !document.getElementById('spotify-login-btn')) {
+                        const loginButton = document.createElement('button');
+                        loginButton.id = 'spotify-login-btn';
+                        loginButton.className = 'spotify-login-btn';
+                        loginButton.textContent = 'Authenticate Spotify';
+                        loginButton.addEventListener('click', authenticateSpotify);
+                        trackDetails.appendChild(loginButton);
+                    }
+                    
+                    return { error: 'Not authenticated', needs_auth: true, auth_url: data.auth_url };
+                });
+            }
+            
+            // Handle other error cases
             if (!response.ok) {
-                // Special handling for auth errors
-                if (response.status === 401) {
-                    return response.json().then(data => {
-                        // Handle auth error specifically
-                        updateErrorState('not authenticated');
-                        return { error: 'Not authenticated', needs_auth: true, auth_url: data.auth_url };
-                    });
-                }
-                
-                // Handle HTTP error status
                 if (response.status === 500) {
                     console.warn('Server error when fetching Spotify status. Retrying in 30s...');
                     setTimeout(fetchSpotifyStatus, 30000); // Retry after 30 seconds
                     return { error: 'Server error', retry: true };
                 }
-                
                 throw new Error(`API error: ${response.status} ${response.statusText}`);
             }
+            
             return response.json();
         })
         .then(data => {
