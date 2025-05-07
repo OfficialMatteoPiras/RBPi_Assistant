@@ -164,7 +164,20 @@ class SpotifyClient:
     def get_queue(self):
         """Fetch the Spotify playback queue."""
         try:
+            if not self.spotify:
+                print("Spotify client is not initialized. Please authenticate.")
+                return None
+                
+            self.refresh_token()
+            # Utilizziamo il metodo corretto e gestiamo meglio gli errori
             queue_data = self.spotify._get("me/player/queue")
+            if not queue_data or not isinstance(queue_data, dict):
+                print("Invalid queue data received from Spotify API")
+                return None
+                
+            # Log per debug
+            queue_length = len(queue_data.get('queue', []))
+            print(f"Retrieved queue data: {queue_length} tracks in queue")
             return queue_data
         except Exception as e:
             print(f"Error fetching Spotify queue: {e}")

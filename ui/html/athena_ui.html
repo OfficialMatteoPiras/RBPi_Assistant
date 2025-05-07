@@ -8,27 +8,31 @@
     <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
     <link rel="icon" href="/static/favicon.ico" type="image/x-icon">
     <script src="/static/js/spotifyscript.js"></script>
+    <script src="/static/js/spotify_updater.js"></script>
+    <script src="/static/js/weather_updater.js"></script>
 </head>
 <body>
-    <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark/light mode">🌓</button>
     
+    <button id="themeToggle" class="theme-toggle" aria-label="Toggle dark/light mode">🌓</button>
     <div class="container">
         <div class="panel">
             <h1>Athena Assistant</h1>
             <p>Your personal voice assistant powered by RBPi5</p>
             <!-- Aggiungiamo il pulsante di aggiornamento manuale -->
+            <!--
             <div class="refresh-control">
                 <button id="refresh-button" class="refresh-button" title="Aggiorna tutti i dati">
-                    <span class="refresh-icon">↻</span> Aggiorna
-                </button>
-            </div>
+                        <span class="refresh-icon">↻</span> Aggiorna
+                    </button>
+                </div>
+                -->
         </div>
         
         <div class="panel">
             <h2>Weather Information</h2>
             <div class="weather-info-header">
                 <span>Condizioni meteo</span>
-                <button id="refresh-weather-button" class="refresh-icon-button" title="Aggiorna meteo">↻</button>
+                <!--<button id="refresh-weather-button" class="refresh-icon-button" title="Aggiorna meteo">↻</button> -->
             </div>
             <div class="weather-info">
                 {% if weather %}
@@ -114,7 +118,9 @@
             <div class="spotify-card">
                 <div class="spotify-header">
                     <h3>Now Playing</h3>
-                    <button id="refresh-spotify-button" class="refresh-icon-button" title="Aggiorna Spotify">↻</button>
+                    <!--
+                        <button id="refresh-spotify-button" class="refresh-icon-button" title="Aggiorna Spotify">↻</button>
+                    -->
                 </div>
                 <div class="spotify-details">
                     <!-- Current Track -->

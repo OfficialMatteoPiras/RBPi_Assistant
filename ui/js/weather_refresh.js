@@ -1,5 +1,5 @@
 document.addEventListener('DOMContentLoaded', function() {
-    // Function to refresh weather data
+    // Function to refresh weather data and update UI
     function refreshWeather() {
         fetch('/api/weather')
             .then(response => {
@@ -11,15 +11,12 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 console.log('Weather data refreshed');
                 // If you want to update the UI without a full page reload,
-                // you can implement the update logic here
+                // you could implement the logic here in the future
             })
             .catch(error => {
                 console.error('Error refreshing weather data:', error);
             });
     }
-
-    // Remove all periodic refresh timers
-    // setInterval(refreshWeather, 900000); // 15 minutes
 
     // Keep the WebSocket connection to listen for refresh commands
     const socket = io({ transports: ['websocket', 'polling'] }); // Ensure proper transport methods
@@ -28,9 +25,17 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log('Connected to Socket.IO server');
     });
 
+    // Listen for general refresh commands (full page reload)
     socket.on('refresh', () => {
         console.log('Refresh command received. Reloading page...');
         location.reload(); // Reload the page
+    });
+
+    // Listen for weather-specific update commands
+    socket.on('weather_update', (data) => {
+        console.log('Weather update notification received:', data);
+        // Refresh only the weather section
+        refreshWeather();
     });
 
     socket.on('disconnect', () => {
@@ -61,50 +66,24 @@ document.addEventListener('DOMContentLoaded', function() {
             refreshWeather();
         });
     }
+    
+    // General refresh button should update all data including weather
+    const refreshButton = document.getElementById('refresh-button');
+    if (refreshButton) {
+        refreshButton.addEventListener('click', function() {
+            refreshWeather();
+            // Also refresh Spotify if that function exists
+            if (typeof fetchSpotifyStatus === 'function') {
+                fetchSpotifyStatus();
+            }
+        });
+    }
 
     // Refresh info when the page becomes visible again
     document.addEventListener('visibilitychange', function() {
         if (!document.hidden) {
             console.log('Page is now visible, refreshing data...');
-            // Do not reload the page immediately, but refresh the data discreetly
             refreshWeather();
-            // Also refresh Spotify data if the function is available
-            if (typeof fetchSpotifyStatus === 'function') {
-                fetchSpotifyStatus();
-            }
         }
     });
-
-    // Add handler for user interactions to refresh data
-    let lastInteraction = Date.now();
-    let interactionTimeout = null;
-
-    function onUserInteraction() {
-        const now = Date.now();
-        // Refresh only if at least 5 minutes have passed since the last interaction
-        if (now - lastInteraction > 5 * 60 * 1000) {
-            lastInteraction = now;
-            refreshWeather();
-            if (typeof fetchSpotifyStatus === 'function') {
-                fetchSpotifyStatus();
-            }
-        }
-        
-        // Reset the timeout
-        if (interactionTimeout) {
-            clearTimeout(interactionTimeout);
-        }
-        
-        // Set a timeout to refresh after a period of inactivity
-        interactionTimeout = setTimeout(() => {
-            refreshWeather();
-            if (typeof fetchSpotifyStatus === 'function') {
-                fetchSpotifyStatus();
-            }
-        }, 5 * 60 * 1000); // 5 minutes of inactivity
-    }
-
-    // Add event listeners to detect user interaction
-    document.addEventListener('click', onUserInteraction);
-    document.addEventListener('scroll', onUserInteraction);
 });

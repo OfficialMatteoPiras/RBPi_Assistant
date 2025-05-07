@@ -43,6 +43,7 @@ class Server:
             redirect_uri="http://127.0.0.1:5000/callback"  # Update the port here
         )
         self.spotify_state = None  # Store the current Spotify state
+        self.weather_state = None  # Store the current weather state
 
         # Start file watcher in a separate thread
         self.start_file_watcher()
@@ -82,7 +83,24 @@ class Server:
             current_data, hourly_dataframe, daily_dataframe = get_weather_data()
             if current_data is not None:
                 self.last_weather_update = datetime.datetime.now()
-                print("Weather data successfully updated at {self.last_weather_update}")
+                
+                # Generate a new state identifier for weather data
+                new_state = {
+                    'current': {
+                        'temp': current_data['temperature_2m'],
+                        'weather_code': current_data['weather_code'],
+                        'timestamp': str(current_data['time'])
+                    }
+                }
+                
+                # Check if state has changed
+                if self.weather_state != new_state:
+                    self.weather_state = new_state
+                    # Emit a WebSocket event to notify clients
+                    self.socketio.emit('weather_update', {'status': 'changed'})
+                    print("Weather data changed, notifying clients")
+                
+                print(f"Weather data successfully updated at {self.last_weather_update}")
             else:
                 print("Failed to update weather data - No data received.")
         except Exception as e:
@@ -273,14 +291,24 @@ class Server:
         def spotify_queue():
             """Fetch the Spotify playback queue."""
             try:
+                if not self.spotify_client.spotify:
+                    print("Spotify client not initialized for queue request")
+                    return jsonify({'error': 'Spotify client not initialized'}), 500
+                    
                 queue_data = self.spotify_client.get_queue()
+                
                 if queue_data:
+                    # Log per debug
+                    queue_size = len(queue_data.get('queue', []))
+                    print(f"Returning queue with {queue_size} tracks")
                     return jsonify(queue_data)
                 else:
-                    return jsonify({'error': 'Failed to fetch Spotify queue'}), 500
+                    # Restituisci una risposta valida anche quando non ci sono dati
+                    print("No queue data available, returning empty queue")
+                    return jsonify({'queue': []})
             except Exception as e:
                 print(f"Error in /api/spotify/queue: {e}")
-                return jsonify({'error': 'Failed to fetch Spotify queue'}), 500
+                return jsonify({'error': 'Failed to fetch Spotify queue', 'details': str(e)}), 500
 
         @self.app.route('/api/spotify/is-favorite/<track_id>')
         def is_track_favorite(track_id):
@@ -329,6 +357,82 @@ class Server:
             except Exception as e:
                 print(f"Error toggling favorite status: {e}")
                 return jsonify({'error': 'Failed to toggle favorite status', 'details': str(e)}), 500
+
+        @self.app.route('/weather_port')
+        def weather_webhook():
+            """Endpoint to check if weather UI should be refreshed.
+            External services can call this to trigger UI updates."""
+            try:
+                # Fetch current weather data
+                current_data, hourly_dataframe, daily_dataframe = get_weather_data()
+                has_changed = False
+                
+                if current_data is not None:
+                    # Generate a state identifier for current weather data
+                    new_state = {
+                        'current': {
+                            'temp': current_data['temperature_2m'],
+                            'weather_code': current_data['weather_code'],
+                            'timestamp': str(current_data['time'])
+                        }
+                    }
+                    
+                    # Check if state has changed
+                    if self.weather_state != new_state:
+                        has_changed = True
+                        self.weather_state = new_state
+                        self.last_weather_update = datetime.datetime.now()
+                        
+                        # Emit a WebSocket event to notify clients (without broadcast parameter)
+                        self.socketio.emit('weather_update', {'status': 'changed'})
+                        print("Weather data changed, notifying clients via WebSocket")
+                
+                return jsonify({
+                    'refresh_needed': has_changed,
+                    'timestamp': datetime.datetime.now().isoformat(),
+                    'last_update': self.last_weather_update.isoformat() if self.last_weather_update else None
+                })
+            except Exception as e:
+                print(f"Error in weather webhook: {e}")
+                return jsonify({'error': 'Failed to check weather status'}), 500
+
+        @self.app.route('/spotify_port')
+        def spotify_webhook():
+            """Endpoint to check if Spotify UI should be refreshed.
+            External services can call this to trigger UI updates."""
+            try:
+                # Check if we have new data compared to cached state
+                current_playback = self.spotify_client.get_current_playback()
+                has_changed = False
+                
+                # Compare with previously stored state
+                if current_playback:
+                    # Calculate a simple hash/identifier of the current state
+                    if current_playback.get('item'):
+                        # Includi più dati per rilevare cambiamenti minori ma significativi
+                        progress_rounded = str(round(current_playback['progress_ms'] / 1000)) # Arrotonda ai secondi
+                        current_id = f"{current_playback['item']['id']}_{progress_rounded}_{current_playback['is_playing']}"
+                        
+                        # Check if state has changed
+                        if self.spotify_state != current_id:
+                            has_changed = True
+                            self.spotify_state = current_id
+                            
+                            # Emit a WebSocket event to notify clients - remove broadcast parameter
+                            self.socketio.emit('spotify_update', {
+                                'status': 'changed',
+                                'track_id': current_playback['item']['id'],
+                                'timestamp': datetime.datetime.now().isoformat()
+                            })  # Removed broadcast=True parameter
+                            print("Spotify data changed, notifying clients via WebSocket")
+        
+                return jsonify({
+                    'refresh_needed': has_changed,
+                    'timestamp': datetime.datetime.now().isoformat()
+                })
+            except Exception as e:
+                print(f"Error in Spotify webhook: {e}")
+                return jsonify({'error': 'Failed to check Spotify status'}), 500
 
     def trigger_refresh_all(self):
         """Trigger a refresh-all command programmatically."""
