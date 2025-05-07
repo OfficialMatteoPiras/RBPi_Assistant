@@ -1,60 +1,78 @@
+from flask import Flask, render_template, jsonify, request
+from flask_socketio import SocketIO
+from src.command_controller import CommandController
 from src.server import Server
 import atexit
-import threading
-import time
+import os
 
-def create_app():
-    """Create and return the Flask app instance."""
-    server = Server()
-    return server.app
+# Initialize Flask app
+app = Flask(__name__, template_folder="ui/html", static_folder="ui", static_url_path="/static")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="eventlet")  # Use eventlet for WebSocket support
 
-def command_console(server):
-    """Interactive console to accept commands."""
-    while True:
-        command = input("Enter command: ").strip().lower()
-        if command == "refresh-all":
-            server.trigger_refresh_all()
-        elif command.startswith("spotify"):
-            _, action = command.split(maxsplit=1)
-            server.spotify_command(action)
-        elif command in ["exit", "quit"]:
-            print("Shutting down server...")
-            server.shutdown()
-            break
+# Initialize CommandController
+command_controller = CommandController(None)  # Pass `None` for now; update if needed
+
+@app.route("/")
+def home():
+    """Serve the main dynamic page."""
+    return render_template("athena_ui.html")
+
+@app.route("/api/spotify", methods=["GET"])
+def spotify_status():
+    """API endpoint to fetch Spotify status."""
+    try:
+        status = command_controller.get_spotify_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({"error": f"Error fetching Spotify status: {e}"}), 500
+
+@app.route("/api/spotify/command", methods=["POST"])
+def spotify_command():
+    """API endpoint to execute Spotify commands."""
+    try:
+        data = request.json
+        command = data.get("command")
+        if command:
+            command_controller.execute_command(command)
+            return jsonify({"status": "success"})
         else:
-            print(f"Unknown command: {command}")
+            return jsonify({"error": "Invalid command"}), 400
+    except Exception as e:
+        return jsonify({"error": f"Error executing command: {e}"}), 500
 
-def toggle_console(console_thread, server):
-    """Toggle the console thread."""
-    if console_thread.is_alive():
-        print("Disabling console...")
-        console_thread.join(timeout=1)
-    else:
-        print("Enabling console...")
-        new_thread = threading.Thread(target=command_console, args=(server,), daemon=True)
-        new_thread.start()
-        return new_thread
-    return console_thread
+@socketio.on("connect")
+def handle_connect():
+    """Handle WebSocket connection."""
+    print("Client connected")
 
-if __name__ == '__main__':
+@socketio.on("disconnect")
+def handle_disconnect():
+    """Handle WebSocket disconnection."""
+    print("Client disconnected")
+
+def run_server():
+    """Run the Flask-SocketIO server."""
+    port = 8000
+    config_path = os.path.join(os.path.dirname(__file__), "config.ini")
+    if os.path.exists(config_path):
+        import configparser
+        config = configparser.ConfigParser()
+        config.read(config_path)
+        port = int(config.get("DEFAULT", "PORT", fallback=8000))
+
+    print(f"Server running at http://0.0.0.0:{port}")
+    socketio.run(app, host="0.0.0.0", port=port)
+
+if __name__ == "__main__":
     # Create server instance
     server = Server()
-
-    # Register shutdown handler to ensure clean shutdown
-    atexit.register(server.shutdown)
-
-    # Start the command console in a separate thread
-    console_thread = threading.Thread(target=command_console, args=(server,), daemon=True)
-    console_thread.start()
-
-    # Poll for a toggle command every second
-    try:
-        while True:
-            time.sleep(1)
-            # Replace this with a condition to toggle the console (e.g., a specific file or signal)
-            # Example: Check for a specific file to toggle the console
-            # if os.path.exists('/tmp/toggle_console'):
-            #     console_thread = toggle_console(console_thread, server)
-    except KeyboardInterrupt:
+    
+    # Register shutdown handler
+    def shutdown_handler():
         print("Shutting down server...")
         server.shutdown()
+    
+    atexit.register(shutdown_handler)
+    
+    # Run the server
+    server.run(debug=True)

@@ -36,3 +36,6 @@ pynput>=1.7.6
 # Optional: For development
 pytest>=7.0.0
 flake8>=4.0.0
+
+# WebSocket support
+eventlet>=0.33.0

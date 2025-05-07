@@ -5,8 +5,14 @@ let periodicPollingTimer = null;
 
 function fetchSpotifyStatus() {
     fetch('/api/spotify')
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`API error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
         .then(data => {
+            console.log('Spotify status:', data);
             const spotifyInfo = document.getElementById('spotify-info');
             const currentAlbumCover = document.getElementById('current-album-cover');
             const currentTrackName = document.getElementById('current-track-name');
@@ -30,7 +36,12 @@ function fetchSpotifyStatus() {
 
                 // Fetch next track details from the queue
                 fetch('/api/spotify/queue')
-                    .then(queueResponse => queueResponse.json())
+                    .then(queueResponse => {
+                        if (!queueResponse.ok) {
+                            throw new Error(`Queue API error: ${queueResponse.status} ${queueResponse.statusText}`);
+                        }
+                        return queueResponse.json();
+                    })
                     .then(queueData => {
                         if (queueData && queueData.queue && queueData.queue.length > 0) {
                             const nextTrack = queueData.queue[0];
@@ -90,10 +101,18 @@ function sendSpotifyCommand(command) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command })
-    }).then(() => {
-        // Fetch status immediately after a command
-        fetchSpotifyStatus();
-    });
+    })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Command API error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Command response:', data);
+            fetchSpotifyStatus(); // Refresh status after command
+        })
+        .catch(error => console.error('Error sending Spotify command:', error));
 }
 
 // Periodic polling to detect changes from other devices
@@ -104,6 +123,26 @@ function startPeriodicPolling() {
     periodicPollingTimer = setInterval(fetchSpotifyStatus, 10000); // Poll every 10 seconds
 }
 
-// Initialize Spotify status on page load
-fetchSpotifyStatus();
-startPeriodicPolling();
+// Add event listener setup for when the DOM is fully loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Spotify status on page load
+    fetchSpotifyStatus();
+    startPeriodicPolling();
+    
+    // Add event listeners for buttons if they exist
+    const playButton = document.getElementById('play-button');
+    if (playButton) {
+        playButton.addEventListener('click', () => sendSpotifyCommand('play'));
+    }
+    
+    const pauseButton = document.getElementById('pause-button');
+    if (pauseButton) {
+        pauseButton.addEventListener('click', () => sendSpotifyCommand('pause'));
+    }
+    
+    // Optional: Add listeners for skip buttons if you have them
+    const skipButton = document.getElementById('skip-button');
+    if (skipButton) {
+        skipButton.addEventListener('click', () => sendSpotifyCommand('skip'));
+    }
+});

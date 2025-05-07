@@ -313,6 +313,29 @@ h1, h2, h3 {
     color: #777; /* Secondary text color for next track artist */
 }
 
+/* Add styles for playback control buttons */
+.playback-controls {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.control-button {
+    background-color: var(--accent-color);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    padding: 8px 15px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background-color 0.2s;
+}
+
+.control-button:hover {
+    background-color: var(--hover-color);
+}
+
 @media (max-width: 768px) {
     .weather-info {
         flex-direction: column;

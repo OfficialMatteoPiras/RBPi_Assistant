@@ -34,7 +34,7 @@ class Server:
                          static_folder=static_folder,
                          static_url_path='/static')
         CORS(self.app)  # Enable CORS for Flask
-        self.socketio = SocketIO(self.app, cors_allowed_origins="*")  # Ensure CORS is enabled for all origins
+        self.socketio = SocketIO(self.app, cors_allowed_origins="*")  # Enable WebSocket support
         self.host = host
 
         self.spotify_client = SpotifyClient(
@@ -308,13 +308,8 @@ class Server:
 
     def run(self, debug=True):
         print("Starting RBPi Assistant server...")
-        if debug:
-            host = self.host  # Use default host (0.0.0.0) for debug mode
-        else:
-            host = "192.168.1.147"  # Use the Raspberry Pi's IP address for production mode
-
-        print(f"Access the web interface at http://{host}:{self.port}")
-        self.socketio.run(self.app, host=host, port=self.port, debug=debug)  # Ensure the port matches
+        print(f"Access the web interface at http://{self.host}:{self.port}")
+        self.socketio.run(self.app, host=self.host, port=self.port, debug=debug)
     
     def shutdown(self):
         """Clean shutdown of the server and scheduler"""
