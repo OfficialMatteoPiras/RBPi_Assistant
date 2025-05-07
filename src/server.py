@@ -220,14 +220,72 @@ class Server:
                 print(f"Error in /api/config: {e}")
                 return jsonify({'error': 'Failed to fetch config'}), 500
 
+        @self.app.route('/api/spotify/auth-url')
+        def get_spotify_auth_url():
+            """Get the Spotify authentication URL."""
+            try:
+                auth_url = self.spotify_client.auth_manager.get_authorize_url()
+                return jsonify({
+                    'auth_url': auth_url,
+                    'message': 'Please visit this URL to authorize the application'
+                })
+            except Exception as e:
+                print(f"Error generating Spotify auth URL: {e}")
+                return jsonify({'error': 'Failed to generate authentication URL'}), 500
+
+        @self.app.route('/api/spotify/auth-status')
+        def get_spotify_auth_status():
+            """Check the Spotify authentication status."""
+            try:
+                if self.spotify_client and self.spotify_client.spotify:
+                    # Attempt a lightweight operation to validate the client
+                    success = self.spotify_client.refresh_token()
+                    if success:
+                        return jsonify({
+                            'status': 'authenticated',
+                            'message': 'Spotify client is authenticated and ready'
+                        })
+                
+                # If we get here, we need re-authentication
+                auth_url = self.spotify_client.auth_manager.get_authorize_url()
+                return jsonify({
+                    'status': 'unauthenticated',
+                    'message': 'Spotify client needs authentication',
+                    'auth_url': auth_url
+                })
+            except Exception as e:
+                print(f"Error checking Spotify auth status: {e}")
+                return jsonify({
+                    'status': 'error',
+                    'message': f'Error checking authentication status: {str(e)}'
+                }), 500
+
         @self.app.route('/api/spotify')
         def spotify_status():
             """Fetch the current Spotify playback status."""
-            playback_status = self.spotify_client.get_current_playback()
-            if playback_status:
-                return jsonify(playback_status)
-            else:
-                return jsonify({'error': 'Failed to fetch Spotify status'}), 500
+            try:
+                if not self.spotify_client.spotify:
+                    # Client not initialized, return a specific error for the UI
+                    auth_url = self.spotify_client.auth_manager.get_authorize_url()
+                    return jsonify({
+                        'error': 'Spotify client not authenticated',
+                        'auth_url': auth_url,
+                        'needs_auth': True
+                    }), 401  # Unauthorized status code
+                    
+                playback_status = self.spotify_client.get_current_playback()
+                if playback_status:
+                    return jsonify(playback_status)
+                else:
+                    # No playback might mean no active device or not playing
+                    return jsonify({
+                        'is_playing': False,
+                        'error': 'No active playback',
+                        'item': None
+                    })
+            except Exception as e:
+                print(f"Error in /api/spotify: {e}")
+                return jsonify({'error': 'Failed to fetch Spotify status', 'details': str(e)}), 500
 
         @self.app.route('/api/spotify/command', methods=['POST'])
         def spotify_command():

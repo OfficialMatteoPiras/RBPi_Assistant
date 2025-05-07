@@ -183,16 +183,77 @@ function updateSpotifyUI(data) {
     }
 }
 
+function updateErrorState(errorMessage) {
+    const currentTrackName = document.getElementById('current-track-name');
+    const currentTrackTime = document.getElementById('current-track-time');
+    const playButton = document.getElementById('play-button');
+    const pauseButton = document.getElementById('pause-button');
+    const favoriteIcon = document.getElementById('favorite-icon');
+    
+    if (currentTrackTimer) {
+        clearInterval(currentTrackTimer);
+        currentTrackTimer = null;
+    }
+    
+    currentTrackName.textContent = `Spotify not available: ${errorMessage}`;
+    currentTrackTime.textContent = '--:-- / --:--';
+    
+    favoriteIcon.style.display = 'none';
+    playButton.classList.add('hidden');
+    pauseButton.classList.add('hidden');
+    
+    // Add login button if authentication is needed
+    const trackDetails = document.querySelector('.track-details');
+    if (trackDetails && errorMessage.includes('not authenticated')) {
+        // Check if login button already exists
+        if (!document.getElementById('spotify-login-btn')) {
+            const loginButton = document.createElement('button');
+            loginButton.id = 'spotify-login-btn';
+            loginButton.className = 'spotify-login-btn';
+            loginButton.textContent = 'Authenticate Spotify';
+            loginButton.addEventListener('click', authenticateSpotify);
+            trackDetails.appendChild(loginButton);
+        }
+    }
+}
+
+function authenticateSpotify() {
+    fetch('/api/spotify/auth-url')
+        .then(response => response.json())
+        .then(data => {
+            if (data.auth_url) {
+                // Open the auth URL in a new window
+                window.open(data.auth_url, '_blank');
+                alert('Please login to Spotify in the new window. After authorization, refresh this page.');
+            } else {
+                console.error('Failed to get auth URL:', data.error || 'Unknown error');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching auth URL:', error);
+        });
+}
+
 function fetchSpotifyStatus() {
     fetch('/api/spotify')
         .then(response => {
             if (!response.ok) {
+                // Special handling for auth errors
+                if (response.status === 401) {
+                    return response.json().then(data => {
+                        // Handle auth error specifically
+                        updateErrorState('not authenticated');
+                        return { error: 'Not authenticated', needs_auth: true, auth_url: data.auth_url };
+                    });
+                }
+                
                 // Handle HTTP error status
                 if (response.status === 500) {
                     console.warn('Server error when fetching Spotify status. Retrying in 30s...');
                     setTimeout(fetchSpotifyStatus, 30000); // Retry after 30 seconds
                     return { error: 'Server error', retry: true };
                 }
+                
                 throw new Error(`API error: ${response.status} ${response.statusText}`);
             }
             return response.json();
@@ -200,6 +261,12 @@ function fetchSpotifyStatus() {
         .then(data => {
             if (data && data.error && data.retry) {
                 // Skip UI update for retryable errors
+                return;
+            }
+            
+            if (data && data.needs_auth) {
+                console.warn('Spotify needs authentication');
+                updateErrorState('not authenticated');
                 return;
             }
             
@@ -219,28 +286,7 @@ function fetchSpotifyStatus() {
         });
 }
 
-// New function to update UI with error state
-function updateErrorState(errorMessage) {
-    const currentTrackName = document.getElementById('current-track-name');
-    const currentTrackTime = document.getElementById('current-track-time');
-    const playButton = document.getElementById('play-button');
-    const pauseButton = document.getElementById('pause-button');
-    const favoriteIcon = document.getElementById('favorite-icon');
-    
-    if (currentTrackTimer) {
-        clearInterval(currentTrackTimer);
-        currentTrackTimer = null;
-    }
-    
-    currentTrackName.textContent = `Spotify not available: ${errorMessage}`;
-    currentTrackTime.textContent = '--:-- / --:--';
-    
-    favoriteIcon.style.display = 'none';
-    playButton.classList.add('hidden');
-    pauseButton.classList.add('hidden');
-}
-
-// Function to check if a track is in favorites
+// New function to check if a track is in favorites
 function checkIfFavorite(trackId) {
     return fetch(`/api/spotify/is-favorite/${trackId}`)
         .then(response => {
@@ -398,4 +444,28 @@ document.addEventListener('DOMContentLoaded', function() {
             fetchSpotifyStatus();
         }
     }, 15000); // Controllo ogni 15 secondi
+});
+
+// Add styles for the login button
+document.addEventListener('DOMContentLoaded', function() {
+    // Add style for Spotify login button
+    const style = document.createElement('style');
+    style.textContent = `
+        .spotify-login-btn {
+            background-color: #1DB954; /* Spotify green */
+            color: white;
+            border: none;
+            border-radius: 24px;
+            padding: 8px 16px;
+            font-weight: bold;
+            margin-top: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .spotify-login-btn:hover {
+            background-color: #1ED760; /* Lighter green on hover */
+        }
+    `;
+    document.head.appendChild(style);
 });

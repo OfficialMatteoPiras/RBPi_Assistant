@@ -34,17 +34,33 @@ class SpotifyClient:
                     encrypted_data = token_file.read()
                     decrypted_data = fernet.decrypt(encrypted_data)
                     token_info = json.loads(decrypted_data)
+                    
+                    # Verify the token is actually valid before proceeding
+                    if not token_info or 'refresh_token' not in token_info:
+                        print("Token file exists but contains invalid data. Need fresh authentication.")
+                        return False
+                        
+                    # Save token to cache and test if it works
                     self.auth_manager.cache_handler.save_token_to_cache(token_info)
-                    self.spotify = Spotify(auth_manager=self.auth_manager)
-                    print("Spotify client initialized with saved token.")
-                    return
+                    
+                    # Test if we can refresh the token
+                    test_success = self.refresh_token()
+                    if test_success:
+                        self.spotify = Spotify(auth_manager=self.auth_manager)
+                        print("Spotify client fully initialized with a working token.")
+                        return True
+                    else:
+                        print("Saved token failed validation test. Need re-authentication.")
+                        return False
             except Exception as e:
                 print(f"Error loading Spotify token: {e}")
+                return False
 
-        print("Spotify token not found. Please authenticate.")
+        print("No valid Spotify token found. Please authenticate.")
         auth_url = self.auth_manager.get_authorize_url()
         print(f"Visit this URL to authorize the application: {auth_url}")
         self.spotify = None  # Ensure Spotify client is None if not authenticated
+        return False
 
     def get_client_credentials_token(self):
         """Request an access token using the Client Credentials Flow."""
