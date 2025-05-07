@@ -1,7 +1,7 @@
 from src.server import Server
 import atexit
 import threading
-from pynput import keyboard  # Replace `keyboard` with `pynput`
+import time
 
 def create_app():
     """Create and return the Flask app instance."""
@@ -47,17 +47,14 @@ if __name__ == '__main__':
     console_thread = threading.Thread(target=command_console, args=(server,), daemon=True)
     console_thread.start()
 
-    # Listen for Ctrl+T to toggle the console using `pynput`
-    def on_press(key):
-        global console_thread
-        try:
-            if key == keyboard.Key.ctrl_l:  # Replace with your desired hotkey
-                console_thread = toggle_console(console_thread, server)
-        except Exception as e:
-            print(f"Error: {e}")
-
-    listener = keyboard.Listener(on_press=on_press)
-    listener.start()
-
-    # Run the server directly
-    server.run()
+    # Poll for a toggle command every second
+    try:
+        while True:
+            time.sleep(1)
+            # Replace this with a condition to toggle the console (e.g., a specific file or signal)
+            # Example: Check for a specific file to toggle the console
+            # if os.path.exists('/tmp/toggle_console'):
+            #     console_thread = toggle_console(console_thread, server)
+    except KeyboardInterrupt:
+        print("Shutting down server...")
+        server.shutdown()
