@@ -9,6 +9,7 @@ from src.utils.icon_generator import ensure_icons_exist
 from src.utils.weather_codes import get_icon_filename, get_weather_description
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
+from src.utils.logger import log_info, log_error, log_warning, log_debug, get_logs
 import os
 import datetime
 import threading
@@ -22,12 +23,13 @@ class Server:
         # Ensure the static folder exists and contains required icons
         static_folder = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'ui')
         ensure_icons_exist()
+        log_info("Server initialization started")
 
         # Load configuration
         config = configparser.ConfigParser()
         config.read('config.ini')
         self.port = int(config.get('DEFAULT', 'PORT', fallback=8000))  # Default to port 8000 if not specified
-        print(f"Configured port: {self.port}")  # Debugging log
+        log_info(f"Configured port: {self.port}")  # Log using logger instead of print
 
         self.app = Flask(__name__, 
                          template_folder=template_folder, 
@@ -63,7 +65,7 @@ class Server:
         """Configure the scheduler to update weather data every hour"""
         # Start the scheduler first
         self.scheduler.start()
-        print("Weather update scheduler started")
+        log_info("Weather update scheduler started")
         
         # Set up a job to update weather data every hour
         try:
@@ -74,13 +76,13 @@ class Server:
                 name='Update weather data hourly',
                 replace_existing=True
             )
-            print("Hourly weather update job scheduled.")
+            log_info("Hourly weather update job scheduled.")
         except Exception as e:
-            print(f"Error setting up hourly weather update scheduler: {e}")
+            log_error(f"Error setting up hourly weather update scheduler: {e}", exc_info=True)
 
     def update_weather_data(self):
         """Function to update weather data"""
-        print(f"Weather update triggered at {datetime.datetime.now()}")
+        log_info(f"Weather update triggered at {datetime.datetime.now()}")
         try:
             current_data, hourly_dataframe, daily_dataframe = get_weather_data()
             if current_data is not None:
@@ -100,13 +102,13 @@ class Server:
                     self.weather_state = new_state
                     # Emit a WebSocket event to notify clients
                     self.socketio.emit('weather_update', {'status': 'changed'})
-                    print("Weather data changed, notifying clients")
+                    log_info("Weather data changed, notifying clients")
                 
-                print(f"Weather data successfully updated at {self.last_weather_update}")
+                log_info(f"Weather data successfully updated at {self.last_weather_update}")
             else:
-                print("Failed to update weather data - No data received.")
+                log_warning("Failed to update weather data - No data received.")
         except Exception as e:
-            print(f"Error updating weather data: {e}")
+            log_error(f"Error updating weather data: {e}", exc_info=True)
     
     def register_routes(self, page_name='error.html'):
         # Define routes
@@ -186,7 +188,7 @@ class Server:
                     'daily': daily_dict
                 })
             except Exception as e:
-                print(f"Error in /api/weather: {e}")
+                log_error(f"Error in /api/weather: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to fetch weather data'}), 500
 
         @self.app.route('/refresh-all', methods=['POST'])
@@ -194,9 +196,9 @@ class Server:
             """Endpoint to trigger a refresh on all connected clients."""
             try:
                 self.socketio.emit('refresh', broadcast=True)  # Use broadcast=True to send to all clients
-                print("Refresh signal sent to all connected clients.")  # Log for debugging
+                log_info("Refresh signal sent to all connected clients.")  # Log for debugging
             except Exception as e:
-                print(f"Error sending refresh signal: {e}")  # Log any errors
+                log_error(f"Error sending refresh signal: {e}", exc_info=True)  # Log any errors
             return jsonify({'status': 'success', 'message': 'Refresh signal sent to all clients'})
 
         @self.app.route('/api/last-update')
@@ -205,10 +207,10 @@ class Server:
                 if self.last_weather_update:
                     return jsonify({'last_update': self.last_weather_update.strftime('%Y-%m-%d %H:%M:%S')})
                 else:
-                    print("No weather updates have been made yet.")
+                    log_warning("No weather updates have been made yet.")
                     return jsonify({'error': 'No weather updates have been made yet.'}), 404
             except Exception as e:
-                print(f"Error in /api/last-update: {e}")
+                log_error(f"Error in /api/last-update: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to fetch last update'}), 500
 
         @self.app.route('/api/config')
@@ -219,7 +221,7 @@ class Server:
                 debug_value = config.get('DEFAULT', 'DEBUG', fallback='false')
                 return jsonify({'DEBUG': debug_value})
             except Exception as e:
-                print(f"Error in /api/config: {e}")
+                log_error(f"Error in /api/config: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to fetch config'}), 500
 
         @self.app.route('/api/spotify/auth-url')
@@ -232,7 +234,7 @@ class Server:
                     'message': 'Please visit this URL to authorize the application'
                 })
             except Exception as e:
-                print(f"Error generating Spotify auth URL: {e}")
+                log_error(f"Error generating Spotify auth URL: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to generate authentication URL'}), 500
 
         @self.app.route('/api/spotify/auth-status')
@@ -256,7 +258,7 @@ class Server:
                     'auth_url': auth_url
                 })
             except Exception as e:
-                print(f"Error checking Spotify auth status: {e}")
+                log_error(f"Error checking Spotify auth status: {e}", exc_info=True)
                 return jsonify({
                     'status': 'error',
                     'message': f'Error checking authentication status: {str(e)}'
@@ -286,7 +288,7 @@ class Server:
                         'item': None
                     })
             except Exception as e:
-                print(f"Error in /api/spotify: {e}")
+                log_error(f"Error in /api/spotify: {e}", exc_info=True)
                 # Make sure error responses don't cause 500 errors
                 return jsonify({
                     'error': 'Failed to fetch Spotify status', 
@@ -310,25 +312,25 @@ class Server:
             try:
                 code = request.args.get('code')
                 if not code:
-                    print("Error: No authorization code received in callback.")
-                    print(f"Request args: {request.args}")  # Log the full request arguments for debugging
+                    log_error("Error: No authorization code received in callback.")
+                    log_error(f"Request args: {request.args}")  # Log the full request arguments for debugging
                     return "Authorization failed. No code received. Check the logs for details."
 
-                print(f"Authorization code received: {code}")
+                log_info(f"Authorization code received: {code}")
                 token_info = self.spotify_client.auth_manager.get_access_token(code)
                 if not token_info:
-                    print("Error: Failed to retrieve token info.")
+                    log_error("Error: Failed to retrieve token info.")
                     return "Authorization failed. Could not retrieve token. Check the logs for details."
 
-                print(f"Token info received: {token_info}")
+                log_info(f"Token info received: {token_info}")
                 encryption_key = self.spotify_client.load_or_generate_encryption_key()
                 fernet = Fernet(encryption_key)
                 self.spotify_client.save_encrypted_token(token_info, fernet)
                 self.spotify_client.initialize_client()
-                print("Spotify authentication successful and client initialized.")
+                log_info("Spotify authentication successful and client initialized.")
                 return "Spotify authentication successful! You can close this tab."
             except Exception as e:
-                print(f"Error during Spotify callback: {e}")
+                log_error(f"Error during Spotify callback: {e}", exc_info=True)
                 return "Spotify authentication failed. Check the server logs for details."
 
         @self.app.route('/api/spotify/artist/<artist_id>')
@@ -350,7 +352,7 @@ class Server:
                 else:
                     return jsonify({'error': 'Failed to fetch track data'}), 500
             except Exception as e:
-                print(f"Error in /api/spotify/track/{track_id}: {e}")
+                log_error(f"Error in /api/spotify/track/{track_id}: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to fetch track data'}), 500
 
         @self.app.route('/api/spotify/queue')
@@ -358,7 +360,7 @@ class Server:
             """Fetch the Spotify playback queue."""
             try:
                 if not self.spotify_client.spotify:
-                    print("Spotify client not initialized for queue request")
+                    log_warning("Spotify client not initialized for queue request")
                     return jsonify({'error': 'Spotify client not initialized'}), 500
                     
                 queue_data = self.spotify_client.get_queue()
@@ -366,14 +368,14 @@ class Server:
                 if queue_data:
                     # Log per debug
                     queue_size = len(queue_data.get('queue', []))
-                    print(f"Returning queue with {queue_size} tracks")
+                    log_info(f"Returning queue with {queue_size} tracks")
                     return jsonify(queue_data)
                 else:
                     # Restituisci una risposta valida anche quando non ci sono dati
-                    print("No queue data available, returning empty queue")
+                    log_info("No queue data available, returning empty queue")
                     return jsonify({'queue': []})
             except Exception as e:
-                print(f"Error in /api/spotify/queue: {e}")
+                log_error(f"Error in /api/spotify/queue: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to fetch Spotify queue', 'details': str(e)}), 500
 
         @self.app.route('/api/spotify/is-favorite/<track_id>')
@@ -390,7 +392,7 @@ class Server:
                     return jsonify({'is_favorite': results[0]})
                 return jsonify({'is_favorite': False})
             except Exception as e:
-                print(f"Error checking if track is favorite: {e}")
+                log_error(f"Error checking if track is favorite: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to check favorite status', 'details': str(e)}), 500
         
         @self.app.route('/api/spotify/toggle-favorite', methods=['POST'])
@@ -414,14 +416,14 @@ class Server:
                 # Toggle status
                 if is_favorite:
                     self.spotify_client.spotify.current_user_saved_tracks_delete([track_id])
-                    print(f"Removed track {track_id} from favorites")
+                    log_info(f"Removed track {track_id} from favorites")
                     return jsonify({'is_favorite': False, 'message': 'Track removed from favorites'})
                 else:
                     self.spotify_client.spotify.current_user_saved_tracks_add([track_id])
-                    print(f"Added track {track_id} to favorites")
+                    log_info(f"Added track {track_id} to favorites")
                     return jsonify({'is_favorite': True, 'message': 'Track added to favorites'})
             except Exception as e:
-                print(f"Error toggling favorite status: {e}")
+                log_error(f"Error toggling favorite status: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to toggle favorite status', 'details': str(e)}), 500
 
         @self.app.route('/weather_port')
@@ -451,7 +453,7 @@ class Server:
                         
                         # Emit a WebSocket event to notify clients (without broadcast parameter)
                         self.socketio.emit('weather_update', {'status': 'changed'})
-                        print("Weather data changed, notifying clients via WebSocket")
+                        log_info("Weather data changed, notifying clients via WebSocket")
                 
                 return jsonify({
                     'refresh_needed': has_changed,
@@ -459,7 +461,7 @@ class Server:
                     'last_update': self.last_weather_update.isoformat() if self.last_weather_update else None
                 })
             except Exception as e:
-                print(f"Error in weather webhook: {e}")
+                log_error(f"Error in weather webhook: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to check weather status'}), 500
 
         @self.app.route('/spotify_port')
@@ -490,21 +492,21 @@ class Server:
                                 'track_id': current_playback['item']['id'],
                                 'timestamp': datetime.datetime.now().isoformat()
                             })  # Removed broadcast=True parameter
-                            print("Spotify data changed, notifying clients via WebSocket")
+                            log_info("Spotify data changed, notifying clients via WebSocket")
         
                 return jsonify({
                     'refresh_needed': has_changed,
                     'timestamp': datetime.datetime.now().isoformat()
                 })
             except Exception as e:
-                print(f"Error in Spotify webhook: {e}")
+                log_error(f"Error in Spotify webhook: {e}", exc_info=True)
                 return jsonify({'error': 'Failed to check Spotify status'}), 500
 
     def trigger_refresh_all(self):
         """Trigger a refresh-all command programmatically."""
         with self.app.test_request_context('/refresh-all', method='POST'):
             response = self.app.full_dispatch_request()
-            print(response.get_json().get('message', 'Failed to trigger refresh-all'))
+            log_info(response.get_json().get('message', 'Failed to trigger refresh-all'))
 
     def start_file_watcher(self):
         """Start a file watcher to monitor changes in the project directory."""
@@ -514,7 +516,7 @@ class Server:
 
             def on_modified(self, event):
                 if event.src_path.endswith(('.html', '.css', '.js')):
-                    print(f"File modified: {event.src_path}")
+                    log_info(f"File modified: {event.src_path}")
                     self.socketio.emit('refresh', to='/')  # Send refresh signal to all clients
 
         observer = Observer()
@@ -522,11 +524,11 @@ class Server:
         observer.schedule(ChangeHandler(self.socketio), path=project_dir, recursive=True)  # Pass SocketIO instance
         observer_thread = threading.Thread(target=observer.start, daemon=True)
         observer_thread.start()
-        print(f"Started file watcher for directory: {project_dir}")
+        log_info(f"Started file watcher for directory: {project_dir}")
 
     def run(self, debug=True):
-        print("Starting RBPi Assistant server...")
-        print(f"Access the web interface at http://{self.host}:{self.port}")
+        log_info("Starting RBPi Assistant server...")
+        log_info(f"Access the web interface at http://{self.host}:{self.port}")
         self.socketio.run(self.app, host=self.host, port=self.port, debug=debug)
     
     def shutdown(self):
@@ -534,6 +536,6 @@ class Server:
         try:
             if hasattr(self, 'scheduler') and self.scheduler.running:
                 self.scheduler.shutdown()
-                print("Weather update scheduler stopped")
+                log_info("Weather update scheduler stopped")
         except Exception as e:
-            print(f"Error shutting down scheduler: {e}")
+            log_error(f"Error shutting down scheduler: {e}", exc_info=True)

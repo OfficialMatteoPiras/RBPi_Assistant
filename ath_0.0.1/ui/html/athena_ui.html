@@ -18,6 +18,9 @@
         <div class="panel">
             <h1>Athena Assistant</h1>
             <p>Your personal voice assistant powered by RBPi5</p>
+            <div class="admin-links">
+                <a href="/logs" class="admin-link">View System Logs</a>
+            </div>
             <!-- Aggiungiamo il pulsante di aggiornamento manuale -->
             <!--
             <div class="refresh-control">
@@ -41,7 +44,7 @@
                     <h3>Current Weather</h3>
                     <div class="weather-icon">
                         <img src="/static/icons/{{ weather.current.icon_filename }}" alt="{{ weather.current.weather_description }}" 
-                             onerror="this.src='/static/icons/weather/unknown.png'">
+                             onerror="this.src='/static/icons/unknown.png'">
                     </div>
                     <div class="weather-details">
                         <p class="weather-description">{{ weather.current.weather_description }}</p>
@@ -61,7 +64,7 @@
                     {% if weather.today %}
                     <div class="weather-icon">
                         <img src="/static/icons/{{ weather.today.icon_filename }}" alt="{{ weather.today.weather_description }}"
-                             onerror="this.src='/static/icons/weather/unknown.png'">
+                             onerror="this.src='/static/icons/unknown.png'">
                     </div>
                     <div class="weather-details">
                         <p class="weather-description">{{ weather.today.weather_description }}</p>
@@ -81,7 +84,7 @@
                     {% if weather.tomorrow %}
                     <div class="weather-icon">
                         <img src="/static/icons/{{ weather.tomorrow.icon_filename }}" alt="{{ weather.tomorrow.weather_description }}"
-                             onerror="this.src='/static/icons/weather/unknown.png'">
+                             onerror="this.src='/static/icons/unknown.png'">
                     </div>
                     <div class="weather-details">
                         <p class="weather-description">{{ weather.tomorrow.weather_description }}</p>

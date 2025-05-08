@@ -150,7 +150,7 @@ def get_icon_filename(weather_code, is_day=True):
             return "weather/" + icon_option  # Return path with weather/ prefix
     
     # If all else fails, return unknown.png
-    return "weather/unknown.png"  # Update the fallback path as well
+    return "/unknown.png"  # Update the fallback path as well
 
 def get_weather_description(code):
     """Get a human-readable description for a weather code."""
